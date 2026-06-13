@@ -25,6 +25,8 @@ function AppleIcon() {
 export default function Login() {
   const [loading, setLoading] = useState('');
   const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
 
   const signIn = async (provider) => {
     setError('');
@@ -37,10 +39,26 @@ export default function Login() {
     } catch (e) {
       console.error('Login error:', e);
       setError(provider === 'apple'
-        ? 'El acceso con Apple aún no está activado. Prueba con Google.'
-        : 'No se pudo iniciar sesión. Inténtalo de nuevo.');
+        ? 'El acceso con Apple aún no está activado. Prueba con Google o email.'
+        : 'El acceso con Google aún no está activado. Prueba con tu email.');
       setLoading('');
     }
+  };
+
+  const sendMagicLink = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+    setError('');
+    setLoading('email');
+    try {
+      const { error } = await base44.auth.signInWithEmail(email.trim());
+      if (error) throw error;
+      setEmailSent(true);
+    } catch (err) {
+      console.error('Email login error:', err);
+      setError('No se pudo enviar el enlace. Revisa el email e inténtalo de nuevo.');
+    }
+    setLoading('');
   };
 
   return (
@@ -70,6 +88,38 @@ export default function Login() {
           >
             <AppleIcon /> {loading === 'apple' ? 'Conectando…' : 'Continuar con Apple'}
           </button>
+
+          {/* Separador */}
+          <div className="flex items-center gap-3 my-1">
+            <div className="flex-1 h-px bg-[#0f1117]/10" />
+            <span className="text-xs text-[#0f1117]/40">o</span>
+            <div className="flex-1 h-px bg-[#0f1117]/10" />
+          </div>
+
+          {emailSent ? (
+            <div className="rounded-2xl bg-[#eab308]/10 border border-[#eab308]/30 p-4 text-sm text-[#0f1117]">
+              ✉️ Te hemos enviado un enlace de acceso a <strong>{email}</strong>.
+              Ábrelo desde este dispositivo para entrar.
+            </div>
+          ) : (
+            <form onSubmit={sendMagicLink} className="flex flex-col gap-2">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm outline-none focus:border-[#eab308]"
+              />
+              <button
+                type="submit"
+                disabled={!!loading}
+                className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
+              >
+                {loading === 'email' ? 'Enviando…' : 'Entrar con mi email'}
+              </button>
+            </form>
+          )}
         </div>
 
         {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}

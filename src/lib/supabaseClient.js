@@ -157,6 +157,10 @@ const authStore = {
   signInWithApple: () =>
     supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: baseUrl() } }),
 
+  // Login por email sin contraseña (enlace mágico) — no requiere configurar Google/Apple
+  signInWithEmail: (email) =>
+    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: baseUrl() } }),
+
   getSession: () => supabase.auth.getSession(),
   onAuthStateChange: (cb) => supabase.auth.onAuthStateChange(cb),
 
