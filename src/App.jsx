@@ -11,6 +11,7 @@ import { base44 } from '@/api/base44Client';
 
 // Pages
 import Home from './pages/Home';
+import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Trips from './pages/Trips';
 import TripWizard from './pages/TripWizard';
@@ -51,7 +52,7 @@ function useThemeApplier() {
 }
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, needsLogin } = useAuth();
   useThemeApplier();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -64,6 +65,9 @@ const AuthenticatedApp = () => {
       </div>
     );
   }
+
+  // Backend en la nube y sin sesión → mostrar pantalla de login
+  if (needsLogin) return <Login />;
 
   if (authError) {
     if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
