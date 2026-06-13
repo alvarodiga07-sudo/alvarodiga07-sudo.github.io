@@ -347,7 +347,11 @@ export default function TripWizard() {
     } catch (e) {
       console.error('Error creando viaje:', e);
       setLoading(false);
-      alert('Hubo un error creando el viaje. Inténtalo de nuevo.');
+      if (e?.code === 'STORAGE_FULL' || /STORAGE_FULL/.test(e?.message)) {
+        alert('El almacenamiento de este navegador está lleno y no se pudo guardar el viaje.\n\nLibera espacio borrando algún viaje antiguo en "Mis viajes" e inténtalo de nuevo.');
+      } else {
+        alert('Hubo un error creando el viaje. Inténtalo de nuevo.');
+      }
     }
   };
 

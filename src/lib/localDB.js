@@ -17,9 +17,11 @@ function getStore(name) {
 function setStore(name, data) {
   try {
     localStorage.setItem(P + name, JSON.stringify(data));
+    return true;
   } catch (e) {
-    // localStorage quota exceeded — not much we can do
+    // Cuota de localStorage superada — señalizamos el fallo en vez de tragarlo en silencio
     console.warn('LocalStorage full:', e);
+    return false;
   }
 }
 
@@ -83,7 +85,14 @@ function makeEntity(storeName) {
         ...data,
       };
       items.push(newItem);
-      setStore(storeName, items);
+      const ok = setStore(storeName, items);
+      if (!ok) {
+        // No se pudo guardar (navegador lleno). No devolvemos un objeto fantasma:
+        // lanzamos un error reconocible para que la UI avise en vez de navegar a un viaje inexistente.
+        const err = new Error('STORAGE_FULL');
+        err.code = 'STORAGE_FULL';
+        return Promise.reject(err);
+      }
       return Promise.resolve(newItem);
     },
 
