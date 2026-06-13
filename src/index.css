@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', sans-serif;
+    
+    --background: 40 20% 98%;
+    --foreground: 220 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+    --primary: 45 93% 47%;
+    --primary-foreground: 220 20% 10%;
+    --secondary: 40 15% 94%;
+    --secondary-foreground: 220 15% 25%;
+    --muted: 40 10% 95%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 45 80% 52%;
+    --accent-foreground: 220 20% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 15% 89%;
+    --input: 40 15% 89%;
+    --ring: 45 93% 47%;
+    --chart-1: 45 93% 47%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 40 20% 98%;
+    --sidebar-foreground: 220 15% 25%;
+    --sidebar-primary: 45 93% 47%;
+    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-accent: 40 15% 94%;
+    --sidebar-accent-foreground: 220 15% 25%;
+    --sidebar-border: 40 15% 89%;
+    --sidebar-ring: 45 93% 47%;
+  }
+
+  .dark {
+    --background: 220 15% 7%;
+    --foreground: 40 15% 95%;
+    --card: 220 15% 10%;
+    --card-foreground: 40 15% 95%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 40 15% 95%;
+    --primary: 45 93% 50%;
+    --primary-foreground: 220 20% 7%;
+    --secondary: 220 12% 15%;
+    --secondary-foreground: 40 15% 90%;
+    --muted: 220 12% 14%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 45 80% 52%;
+    --accent-foreground: 220 20% 7%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 45 93% 50%;
+    --chart-1: 45 93% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 220 15% 7%;
+    --sidebar-foreground: 40 15% 90%;
+    --sidebar-primary: 45 93% 50%;
+    --sidebar-primary-foreground: 220 20% 7%;
+    --sidebar-accent: 220 12% 15%;
+    --sidebar-accent-foreground: 40 15% 90%;
+    --sidebar-border: 220 12% 18%;
+    --sidebar-ring: 45 93% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-inter;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+/* Globe canvas */
+.globe-canvas canvas {
+  outline: none !important;
+}
+
+/* Passport page flip */
+@keyframes pageFlip {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}

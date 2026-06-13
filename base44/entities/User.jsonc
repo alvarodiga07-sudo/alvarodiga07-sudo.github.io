@@ -1,0 +1,68 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "user"
+      ],
+      "default": "user"
+    },
+    "username": {
+      "type": "string",
+      "description": "Unique username"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "country_of_origin": {
+      "type": "string",
+      "description": "ISO country code"
+    },
+    "passport_country": {
+      "type": "string",
+      "description": "ISO country code for passport"
+    },
+    "language": {
+      "type": "string",
+      "default": "en"
+    },
+    "theme": {
+      "type": "string",
+      "enum": [
+        "light",
+        "dark",
+        "system"
+      ],
+      "default": "system"
+    },
+    "travel_interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "onboarding_complete": {
+      "type": "boolean",
+      "default": false
+    },
+    "countries_visited": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of ISO country codes"
+    }
+  },
+  "required": [
+    "username"
+  ]
+}

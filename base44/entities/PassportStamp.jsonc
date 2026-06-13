@@ -1,0 +1,38 @@
+{
+  "name": "PassportStamp",
+  "type": "object",
+  "properties": {
+    "country_code": {
+      "type": "string",
+      "description": "ISO country code"
+    },
+    "country_name": {
+      "type": "string"
+    },
+    "trip_id": {
+      "type": "string"
+    },
+    "visit_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "stamp_design": {
+      "type": "string",
+      "description": "Design template identifier"
+    },
+    "stamp_color": {
+      "type": "string"
+    },
+    "stamp_icon": {
+      "type": "string",
+      "description": "Icon/symbol for the stamp"
+    },
+    "order": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "country_code",
+    "country_name"
+  ]
+}

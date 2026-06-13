@@ -1,0 +1,95 @@
+{
+  "name": "Trip",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "destination_country": {
+      "type": "string",
+      "description": "ISO country code"
+    },
+    "destination_city": {
+      "type": "string"
+    },
+    "origin_country": {
+      "type": "string"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "trip_type": {
+      "type": "string",
+      "enum": [
+        "leisure",
+        "adventure",
+        "work",
+        "family",
+        "romantic",
+        "relaxation"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "active",
+        "completed"
+      ],
+      "default": "planning"
+    },
+    "cover_image": {
+      "type": "string"
+    },
+    "travelers_count": {
+      "type": "number",
+      "default": 1
+    },
+    "duration_days": {
+      "type": "number"
+    },
+    "budget": {
+      "type": "number"
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "allergies": {
+          "type": "string"
+        },
+        "insect_allergies": {
+          "type": "string"
+        },
+        "religion": {
+          "type": "string"
+        },
+        "interests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "age": {
+          "type": "number"
+        }
+      }
+    },
+    "itinerary_notes": {
+      "type": "string",
+      "description": "Rich text itinerary"
+    },
+    "is_suggested": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "title",
+    "destination_country"
+  ]
+}

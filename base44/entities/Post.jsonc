@@ -1,0 +1,45 @@
+{
+  "name": "Post",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trip_id": {
+      "type": "string"
+    },
+    "country_code": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "likes_count": {
+      "type": "number",
+      "default": 0
+    },
+    "post_type": {
+      "type": "string",
+      "enum": [
+        "photo",
+        "carousel",
+        "story",
+        "video"
+      ],
+      "default": "photo"
+    },
+    "is_highlighted": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "content"
+  ]
+}
