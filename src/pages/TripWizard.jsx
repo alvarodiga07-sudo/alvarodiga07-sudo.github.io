@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChevronRight, ChevronLeft, X, Sparkles, Search, Check } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
-import { generateItinerary } from '@/lib/claudeAI';
+import { generateItinerary, hasApiKey } from '@/lib/claudeAI';
 import { getRegionData, CITY_ATTRACTIONS, CITIES_BY_COUNTRY } from '@/lib/destinationData';
 import { format, addDays } from 'date-fns';
 
@@ -178,6 +178,7 @@ export default function TripWizard() {
   const [step, setStep] = useState(0);
   const [aiMsg, setAiMsg] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
 
   const [form, setForm] = useState({
     origin_country:'', origin_city:'',
@@ -272,6 +273,12 @@ export default function TripWizard() {
   };
 
   const handleCreate = async () => {
+    // Para generar itinerarios con IA hace falta conectar una clave de Anthropic (Claude).
+    // Si no hay clave, mostramos la explicación en vez de generar.
+    if (!hasApiKey()) {
+      setShowKeyPrompt(true);
+      return;
+    }
     try {
       setLoading(true); setAiMsg(0);
 
@@ -373,6 +380,38 @@ export default function TripWizard() {
           <motion.p key={aiMsg} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             className="text-sm text-muted-foreground">{AI_MSGS[aiMsg]}</motion.p>
         </AnimatePresence>
+      </div>
+    </div>
+  );
+
+  // Modal: pedir conectar la clave de Claude para generar con IA
+  if (showKeyPrompt) return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-full max-w-md">
+        <div className="text-5xl mb-4">✨</div>
+        <h2 className="text-2xl font-extrabold text-foreground mb-2">Conecta Claude para generar tu viaje</h2>
+        <p className="text-sm text-muted-foreground mb-5">
+          Waddle crea tus itinerarios con la IA de Claude (Anthropic). Solo tienes que conectar tu
+          clave <strong>una vez</strong>; se guarda en tu dispositivo y los costes corren por tu cuenta de Anthropic.
+        </p>
+
+        <div className="bg-muted/50 rounded-2xl p-4 text-left text-sm space-y-1.5 mb-5">
+          <p className="font-semibold text-foreground">Cómo conseguir tu clave (2 min):</p>
+          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+            <li>Entra en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline font-medium">console.anthropic.com</a> y crea tu cuenta</li>
+            <li>Ve a <strong>API Keys</strong> → <strong>Create Key</strong></li>
+            <li>Copia la clave (empieza por <code>sk-ant-</code>)</li>
+            <li>Pégala en <strong>Ajustes</strong> de Waddle y guarda</li>
+          </ol>
+          <p className="text-muted-foreground pt-1">💡 En Anthropic puedes fijar un límite de gasto para no gastar de más.</p>
+        </div>
+
+        <Button onClick={() => navigate('/settings')} className="w-full h-12 rounded-xl text-base font-semibold mb-2">
+          Ir a Ajustes y conectar mi clave
+        </Button>
+        <button onClick={() => setShowKeyPrompt(false)} className="w-full h-10 text-sm text-muted-foreground hover:text-foreground transition">
+          Volver
+        </button>
       </div>
     </div>
   );
