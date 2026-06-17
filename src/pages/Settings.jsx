@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Camera, User, Globe, Moon, Sun, Shield, LogOut, Save } from 'lucide-react';
+import { ArrowLeft, Camera, User, Globe, Moon, Sun, Shield, LogOut, Save, Key } from 'lucide-react';
+import { getApiKey, setApiKey } from '@/lib/claudeAI';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +38,9 @@ export default function Settings() {
     profile_visibility: 'public', // 'public' | 'private'
   });
 
+  const [apiKey, setApiKeyLocal] = useState('');
+  const [apiKeyModified, setApiKeyModified] = useState(false);
+
   useEffect(() => {
     if (user) {
       setForm({
@@ -50,6 +54,9 @@ export default function Settings() {
         profile_visibility: user.profile_visibility || 'public',
       });
     }
+    // Cargar API key guardada localmente
+    setApiKeyLocal(getApiKey() || '');
+    setApiKeyModified(false);
   }, [user]);
 
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
@@ -240,6 +247,50 @@ export default function Settings() {
             {form.profile_visibility === 'public' && (
               <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 text-xs text-green-700 dark:text-green-400">
                 ✓ Tu perfil es público — otros usuarios pueden ver tus itinerarios y compartirlos
+              </div>
+            )}
+          </div>
+        </Section>
+
+        <Separator />
+
+        {/* API Key para IA */}
+        <Section title="Generador de Itinerarios IA" icon={<Key className="w-4 h-4" />}>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Ingresa tu API key de Anthropic Claude para mejorar los itinerarios generados automáticamente. Se guarda localmente en este dispositivo.
+            </p>
+            <Input
+              type="password"
+              placeholder="sk-ant-..."
+              value={apiKey}
+              onChange={(e) => {
+                setApiKeyLocal(e.target.value);
+                setApiKeyModified(true);
+              }}
+              className="rounded-xl h-10 text-sm"
+            />
+            {apiKeyModified && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setApiKey(apiKey);
+                  setApiKeyModified(false);
+                  toast.success(apiKey ? 'API key guardada localmente' : 'API key eliminada');
+                }}
+                className="w-full h-9 rounded-xl text-sm bg-amber-600 hover:bg-amber-700"
+              >
+                Guardar API key
+              </Button>
+            )}
+            {apiKey && !apiKeyModified && (
+              <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-3 text-xs text-green-700 dark:text-green-400">
+                ✓ API key configurada — los itinerarios se mejorarán con Claude AI
+              </div>
+            )}
+            {!apiKey && (
+              <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-400">
+                ℹ️ Sin API key: se usan itinerarios locales (siempre funcionan, menos personalizados)
               </div>
             )}
           </div>

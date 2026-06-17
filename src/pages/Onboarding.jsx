@@ -59,13 +59,18 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     setLoading(true);
-    await base44.auth.updateMe({
-      ...form,
-      onboarding_complete: true,
-    });
-    queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    try {
+      await base44.auth.updateMe({
+        ...form,
+        onboarding_complete: true,
+      });
+      // Refetch inmediato para asegurar que el usuario tiene onboarding_complete = true ANTES de navegar
+      await queryClient.refetchQueries({ queryKey: ['currentUser'] });
+    } finally {
+      setLoading(false);
+    }
+    // Navega solo DESPUÉS de que la query esté actualizada (no habrá doble onboarding)
     navigate('/');
-    setLoading(false);
   };
 
   const canNext = () => {
