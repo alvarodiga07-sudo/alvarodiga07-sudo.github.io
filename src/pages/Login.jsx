@@ -29,6 +29,8 @@ export default function Login() {
   const [emailSent, setEmailSent] = useState(false);
   const [mode, setMode] = useState('register'); // 'register' | 'login'
   const isRegister = mode === 'register';
+  // Pon en true cuando Google/Apple OAuth estén configurados en Supabase
+  const OAUTH_ENABLED = false;
 
   const signIn = async (provider) => {
     setError('');
@@ -99,28 +101,32 @@ export default function Login() {
         </div>
 
         <div className="mt-6 w-full flex flex-col gap-3">
-          <button
-            onClick={() => signIn('google')}
-            disabled={!!loading}
-            className="w-full h-12 rounded-2xl bg-white border border-[#0f1117]/10 shadow-sm flex items-center justify-center gap-3 font-semibold text-[#0f1117] hover:border-[#eab308] hover:shadow-md transition disabled:opacity-50"
-          >
-            <GoogleIcon /> {loading === 'google' ? 'Conectando…' : 'Continuar con Google'}
-          </button>
+          {OAUTH_ENABLED && (
+            <>
+              <button
+                onClick={() => signIn('google')}
+                disabled={!!loading}
+                className="w-full h-12 rounded-2xl bg-white border border-[#0f1117]/10 shadow-sm flex items-center justify-center gap-3 font-semibold text-[#0f1117] hover:border-[#eab308] hover:shadow-md transition disabled:opacity-50"
+              >
+                <GoogleIcon /> {loading === 'google' ? 'Conectando…' : 'Continuar con Google'}
+              </button>
 
-          <button
-            onClick={() => signIn('apple')}
-            disabled={!!loading}
-            className="w-full h-12 rounded-2xl bg-[#0f1117] text-white flex items-center justify-center gap-3 font-semibold hover:bg-[#1a1d27] transition disabled:opacity-50"
-          >
-            <AppleIcon /> {loading === 'apple' ? 'Conectando…' : 'Continuar con Apple'}
-          </button>
+              <button
+                onClick={() => signIn('apple')}
+                disabled={!!loading}
+                className="w-full h-12 rounded-2xl bg-[#0f1117] text-white flex items-center justify-center gap-3 font-semibold hover:bg-[#1a1d27] transition disabled:opacity-50"
+              >
+                <AppleIcon /> {loading === 'apple' ? 'Conectando…' : 'Continuar con Apple'}
+              </button>
 
-          {/* Separador */}
-          <div className="flex items-center gap-3 my-1">
-            <div className="flex-1 h-px bg-[#0f1117]/10" />
-            <span className="text-xs text-[#0f1117]/40">o</span>
-            <div className="flex-1 h-px bg-[#0f1117]/10" />
-          </div>
+              {/* Separador */}
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-[#0f1117]/10" />
+                <span className="text-xs text-[#0f1117]/40">o</span>
+                <div className="flex-1 h-px bg-[#0f1117]/10" />
+              </div>
+            </>
+          )}
 
           {emailSent ? (
             <div className="rounded-2xl bg-[#eab308]/10 border border-[#eab308]/30 p-4 text-sm text-[#0f1117]">
