@@ -116,9 +116,16 @@ async function callClaude(promptText) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 55000); // 55s timeout
   try {
-    const res = await fetch('/ai-proxy/v1/messages', {
+    // Llamada DIRECTA a Anthropic desde el navegador (la clave es del propio usuario,
+    // guardada solo en su dispositivo). Funciona en la web publicada, sin servidor propio.
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-client-api-key': key },
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001', max_tokens: 6000,
         system: 'Eres un planificador de viajes experto. Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código markdown.',

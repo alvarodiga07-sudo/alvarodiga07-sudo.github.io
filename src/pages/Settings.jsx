@@ -258,8 +258,24 @@ export default function Settings() {
         <Section title="Generador de Itinerarios IA" icon={<Key className="w-4 h-4" />}>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Ingresa tu API key de Anthropic Claude para mejorar los itinerarios generados automáticamente. Se guarda localmente en este dispositivo.
+              Los itinerarios funcionan siempre con nuestro generador. Si además conectas tu propia clave de
+              Claude (Anthropic), serán aún más personalizados y detallados. La clave se guarda <strong>solo en
+              este dispositivo</strong> y los costes corren por tu cuenta de Anthropic.
             </p>
+
+            <div className="bg-muted/50 rounded-xl p-3 text-xs text-foreground space-y-1.5">
+              <p className="font-semibold">Cómo conseguir tu clave (2 min):</p>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Entra en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline font-medium">console.anthropic.com</a> y crea una cuenta</li>
+                <li>Menú <strong>API Keys</strong> → <strong>Create Key</strong></li>
+                <li>Ponle un nombre y cópiala (empieza por <code>sk-ant-</code>)</li>
+                <li>Pégala abajo y pulsa <strong>Guardar API key</strong></li>
+              </ol>
+              <p className="text-muted-foreground pt-1">
+                💡 En Anthropic puedes poner un <strong>límite de gasto</strong> (Settings → Limits) para no gastar de más.
+              </p>
+            </div>
+
             <Input
               type="password"
               placeholder="sk-ant-..."
