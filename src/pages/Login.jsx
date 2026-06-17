@@ -141,7 +141,7 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@email.com"
-                className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm outline-none focus:border-[#eab308]"
+                className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm bg-white text-[#0f1117] placeholder:text-[#0f1117]/40 outline-none focus:border-[#eab308]"
               />
               <button
                 type="submit"
