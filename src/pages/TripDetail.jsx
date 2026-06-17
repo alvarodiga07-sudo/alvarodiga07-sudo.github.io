@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -447,7 +447,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
 export default function TripDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const tripId = window.location.pathname.split('/trip/')[1];
+  const { id: tripId } = useParams();   // funciona con HashRouter (el id NO está en pathname)
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState('');
   const [uploading, setUploading] = useState(false);
