@@ -51,10 +51,18 @@ declare t text;
 begin
   foreach t in array array['trips','stamps','trip_photos','posts','follows','comments','notifications']
   loop
-    execute format('drop policy if exists "%s_owner_all" on public.%I;', t, t);
+    -- SELECT: el dueño puede ver sus propias filas
+    execute format('drop policy if exists "%s_owner_read" on public.%I;', t, t);
     execute format($f$
-      create policy "%s_owner_all" on public.%I for all
-      using (auth.uid() = user_id) with check (auth.uid() = user_id);
+      create policy "%s_owner_read" on public.%I for select
+      using (auth.uid() = user_id);
+    $f$, t, t);
+    -- INSERT, UPDATE, DELETE: solo el dueño
+    execute format('drop policy if exists "%s_owner_write" on public.%I;', t, t);
+    execute format($f$
+      create policy "%s_owner_write" on public.%I for insert with check (auth.uid() = user_id);
+      create policy "%s_owner_update" on public.%I for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+      create policy "%s_owner_delete" on public.%I for delete using (auth.uid() = user_id);
     $f$, t, t);
   end loop;
 end $$;
