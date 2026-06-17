@@ -27,6 +27,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  const [mode, setMode] = useState('register'); // 'register' | 'login'
+  const isRegister = mode === 'register';
 
   const signIn = async (provider) => {
     setError('');
@@ -51,12 +53,17 @@ export default function Login() {
     setError('');
     setLoading('email');
     try {
-      const { error } = await base44.auth.signInWithEmail(email.trim());
+      const { error } = await base44.auth.signInWithEmail(email.trim(), { shouldCreateUser: isRegister });
       if (error) throw error;
       setEmailSent(true);
     } catch (err) {
       console.error('Email login error:', err);
-      setError('No se pudo enviar el enlace. Revisa el email e inténtalo de nuevo.');
+      // En modo "iniciar sesión", si el correo no tiene cuenta, Supabase no envía nada
+      if (!isRegister && /signup|not allowed|user|exist/i.test(err?.message || '')) {
+        setError('No existe ninguna cuenta con ese correo. Cambia a "Crear cuenta".');
+      } else {
+        setError('No se pudo enviar el enlace. Revisa el email e inténtalo de nuevo.');
+      }
     }
     setLoading('');
   };
@@ -66,13 +73,32 @@ export default function Login() {
       style={{ background: 'radial-gradient(circle at 50% 0%, #fff7e0, #fafaf5 55%)' }}>
       <div className="w-full max-w-sm flex flex-col items-center">
         <img src={LOGO_URL} alt="Waddle" className="w-20 h-20 rounded-2xl shadow-lg mb-6" />
-        <h1 className="text-3xl font-extrabold text-[#0f1117] tracking-tight">Bienvenido a Waddle</h1>
+        <h1 className="text-3xl font-extrabold text-[#0f1117] tracking-tight">
+          {isRegister ? 'Crea tu cuenta' : 'Bienvenido de nuevo'}
+        </h1>
         <p className="mt-3 text-[#0f1117]/60 leading-relaxed">
-          Tu compañero de viajes inteligente. Planifica, explora, colecciona países en tu
-          pasaporte digital y comparte tus aventuras.
+          {isRegister
+            ? 'Únete a Waddle: planifica viajes, colecciona países en tu pasaporte digital y comparte tus aventuras.'
+            : 'Inicia sesión para volver a tus viajes, tu pasaporte y tu diario.'}
         </p>
 
-        <div className="mt-8 w-full flex flex-col gap-3">
+        {/* #1 — Selector Iniciar sesión / Crear cuenta */}
+        <div className="mt-6 w-full grid grid-cols-2 gap-1 p-1 rounded-2xl bg-[#0f1117]/5">
+          <button
+            onClick={() => { setMode('login'); setError(''); setEmailSent(false); }}
+            className={`h-10 rounded-xl text-sm font-semibold transition ${!isRegister ? 'bg-white text-[#0f1117] shadow-sm' : 'text-[#0f1117]/50'}`}
+          >
+            Iniciar sesión
+          </button>
+          <button
+            onClick={() => { setMode('register'); setError(''); setEmailSent(false); }}
+            className={`h-10 rounded-xl text-sm font-semibold transition ${isRegister ? 'bg-white text-[#0f1117] shadow-sm' : 'text-[#0f1117]/50'}`}
+          >
+            Crear cuenta
+          </button>
+        </div>
+
+        <div className="mt-6 w-full flex flex-col gap-3">
           <button
             onClick={() => signIn('google')}
             disabled={!!loading}
@@ -116,7 +142,7 @@ export default function Login() {
                 disabled={!!loading}
                 className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
               >
-                {loading === 'email' ? 'Enviando…' : 'Entrar con mi email'}
+                {loading === 'email' ? 'Enviando…' : (isRegister ? 'Crear cuenta con mi email' : 'Entrar con mi email')}
               </button>
             </form>
           )}

@@ -89,29 +89,57 @@ function makeEntity(table) {
   };
 }
 
-// Entidad "User" (perfiles públicos) — mapea a la tabla profiles con columnas explícitas.
+// Columnas REALES de la tabla profiles. Cualquier otro campo se guarda en el jsonb "data".
+const PROFILE_COLUMNS = ['full_name', 'username', 'avatar_url', 'bio', 'country_of_origin',
+  'age', 'theme', 'onboarding_complete', 'countries_visited'];
+
+function flattenProfile(p) {
+  if (!p) return p;
+  const { data, ...rest } = p;
+  return { ...(data || {}), ...rest }; // las columnas reales mandan sobre el jsonb
+}
+
+// Separa los campos entrantes en columnas reales vs. campos extra (que van al jsonb)
+function splitProfileFields(fields) {
+  const cols = {}, extra = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (k === 'id' || k === 'email') continue;
+    if (PROFILE_COLUMNS.includes(k)) cols[k] = v;
+    else extra[k] = v;
+  }
+  return { cols, extra };
+}
+
+// Entidad "User" (perfiles públicos) — mapea a la tabla profiles.
 const profilesEntity = {
   list: async () => {
     const { data, error } = await supabase.from('profiles').select('*');
     if (error) throw error;
-    return data || [];
+    return (data || []).map(flattenProfile);
   },
   filter: async (query = {}) => {
     let q = supabase.from('profiles').select('*');
-    for (const [k, v] of Object.entries(query)) q = q.eq(k, v);
+    for (const [k, v] of Object.entries(query)) {
+      if (PROFILE_COLUMNS.includes(k) || k === 'id') q = q.eq(k, v);
+      else q = q.contains('data', { [k]: v });
+    }
     const { data, error } = await q;
     if (error) throw error;
-    return data || [];
+    return (data || []).map(flattenProfile);
   },
   get: async (id) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
     if (error) throw error;
-    return data;
+    return flattenProfile(data);
   },
-  update: async (id, data) => {
-    const { data: row, error } = await supabase.from('profiles').update(data).eq('id', id).select().single();
+  update: async (id, fields) => {
+    const { data: cur } = await supabase.from('profiles').select('data').eq('id', id).single();
+    const { cols, extra } = splitProfileFields(fields);
+    const merged = { ...(cur?.data || {}), ...extra };
+    const { data: row, error } = await supabase.from('profiles')
+      .update({ ...cols, data: merged }).eq('id', id).select().single();
     if (error) throw error;
-    return row;
+    return flattenProfile(row);
   },
 };
 
@@ -131,24 +159,28 @@ const authStore = {
           onboarding_complete: false,
           full_name: meta.full_name || meta.name || '',
           avatar_url: meta.avatar_url || meta.picture || '',
+          data: {},
         })
         .select()
         .single();
       profile = inserted;
     }
-    return { ...profile, id: user.id, email: user.email };
+    return { ...flattenProfile(profile), id: user.id, email: user.email };
   },
 
-  updateMe: async (data) => {
+  updateMe: async (fields) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No hay sesión');
+    const { data: cur } = await supabase.from('profiles').select('data').eq('id', user.id).single();
+    const { cols, extra } = splitProfileFields(fields);
+    const merged = { ...(cur?.data || {}), ...extra };
     const { data: row, error } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, ...data })
+      .upsert({ id: user.id, ...cols, data: merged })
       .select()
       .single();
     if (error) throw error;
-    return { ...row, id: user.id, email: user.email };
+    return { ...flattenProfile(row), id: user.id, email: user.email };
   },
 
   signInWithGoogle: () =>
@@ -157,9 +189,18 @@ const authStore = {
   signInWithApple: () =>
     supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: baseUrl() } }),
 
-  // Login por email sin contraseña (enlace mágico) — no requiere configurar Google/Apple
-  signInWithEmail: (email) =>
-    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: baseUrl() } }),
+  // Login por email sin contraseña (enlace mágico). shouldCreateUser=false → solo inicia sesión
+  // (no crea cuenta), para distinguir "iniciar sesión" de "registrarse".
+  signInWithEmail: (email, { shouldCreateUser = true } = {}) =>
+    supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: baseUrl(), shouldCreateUser } }),
+
+  // Comprueba si un nombre de usuario ya está cogido (case-insensitive)
+  isUsernameTaken: async (username, exceptId) => {
+    const uname = (username || '').trim().toLowerCase();
+    if (!uname) return false;
+    const { data } = await supabase.from('profiles').select('id').ilike('username', uname);
+    return (data || []).some(u => u.id !== exceptId);
+  },
 
   getSession: () => supabase.auth.getSession(),
   onAuthStateChange: (cb) => supabase.auth.onAuthStateChange(cb),

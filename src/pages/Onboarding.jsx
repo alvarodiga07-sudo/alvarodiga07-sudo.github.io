@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ChevronRight, ChevronLeft, User, Globe, Heart, Check } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
 
@@ -59,17 +60,39 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     setLoading(true);
+    const uname = form.username.trim().toLowerCase();
+
+    // #3 — Comprobar que el nombre de usuario no esté cogido por otra persona
+    try {
+      if (base44.auth.isUsernameTaken) {
+        const me = await base44.auth.me().catch(() => null);
+        const taken = await base44.auth.isUsernameTaken(uname, me?.id);
+        if (taken) {
+          setLoading(false);
+          toast.error('Ese nombre de usuario ya está cogido. Elige otro.');
+          setStep(1); // volver al paso del perfil
+          return;
+        }
+      }
+    } catch { /* si la comprobación falla, no bloqueamos el registro */ }
+
+    // Guardar perfil (username normalizado en minúsculas) y marcar onboarding completo
     try {
       await base44.auth.updateMe({
         ...form,
+        username: uname,
         onboarding_complete: true,
       });
-      // Refetch inmediato para asegurar que el usuario tiene onboarding_complete = true ANTES de navegar
+      // Refetch ANTES de navegar para que onboarding_complete=true esté ya cargado (evita el bucle)
       await queryClient.refetchQueries({ queryKey: ['currentUser'] });
-    } finally {
+    } catch (e) {
+      console.error('Error guardando onboarding:', e);
       setLoading(false);
+      toast.error('No se pudo guardar tu perfil. Inténtalo de nuevo.');
+      return;
     }
-    // Navega solo DESPUÉS de que la query esté actualizada (no habrá doble onboarding)
+
+    setLoading(false);
     navigate('/');
   };
 
