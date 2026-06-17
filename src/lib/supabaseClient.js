@@ -68,7 +68,12 @@ function makeEntity(table) {
     },
 
     create: async (data) => {
-      const { data: row, error } = await supabase.from(table).insert({ body: data }).select().single();
+      // Fijamos user_id EXPLÍCITAMENTE (no dependemos del default auth.uid()),
+      // para que el dueño siempre pueda leer/escribir su fila vía RLS.
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: row, error } = await supabase.from(table)
+        .insert({ user_id: user?.id, body: data })
+        .select().single();
       if (error) throw error;
       return flatten(row);
     },
