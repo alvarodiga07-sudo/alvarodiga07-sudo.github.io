@@ -5,7 +5,13 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   base: '/',                                  // servido en la raíz (alvarodiga07-sudo.github.io)
-  build: { outDir: 'docs', emptyOutDir: true },
+  build: {
+    outDir: 'docs',
+    emptyOutDir: true,
+    // Entrada FIJA = app.html (apunta a /src/main.jsx). Nunca se sobrescribe con el compilado,
+    // así el build SIEMPRE recompila el código fuente de src/.
+    rollupOptions: { input: path.resolve(__dirname, 'app.html') },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
