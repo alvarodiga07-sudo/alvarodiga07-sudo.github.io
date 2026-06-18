@@ -202,6 +202,12 @@ const authStore = {
   verifyEmailOtp: (email, token) =>
     supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: 'email' }),
 
+  // Registro / inicio de sesión con email + contraseña (funciona en cualquier dispositivo, sin emails)
+  signUpWithPassword: (email, password) =>
+    supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: baseUrl() } }),
+  signInWithPassword: (email, password) =>
+    supabase.auth.signInWithPassword({ email: email.trim(), password }),
+
   // Comprueba si un nombre de usuario ya está cogido (case-insensitive)
   isUsernameTaken: async (username, exceptId) => {
     const uname = (username || '').trim().toLowerCase();

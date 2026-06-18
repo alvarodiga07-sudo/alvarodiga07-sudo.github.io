@@ -29,7 +29,7 @@ export default function Login() {
   const [emailSent, setEmailSent] = useState(false);
   const [mode, setMode] = useState('register'); // 'register' | 'login'
   const isRegister = mode === 'register';
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   // Pon en true cuando Google/Apple OAuth estén configurados en Supabase
   const OAUTH_ENABLED = false;
 
@@ -50,39 +50,37 @@ export default function Login() {
     }
   };
 
-  const sendMagicLink = async (e) => {
+  const submitPassword = async (e) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || password.length < 6) return;
     setError('');
     setLoading('email');
     try {
-      const { error } = await base44.auth.signInWithEmail(email.trim(), { shouldCreateUser: isRegister });
-      if (error) throw error;
-      setEmailSent(true);
-    } catch (err) {
-      console.error('Email login error:', err);
-      // En modo "iniciar sesión", si el correo no tiene cuenta, Supabase no envía nada
-      if (!isRegister && /signup|not allowed|user|exist/i.test(err?.message || '')) {
-        setError('No existe ninguna cuenta con ese correo. Cambia a "Crear cuenta".');
+      if (isRegister) {
+        const { data, error } = await base44.auth.signUpWithPassword(email.trim(), password);
+        if (error) throw error;
+        // Si hay sesión inmediata (confirmación de email desactivada) → AuthContext entra solo.
+        if (!data?.session) {
+          setError('Cuenta creada. Si pide confirmación por email, ábrelo. (Recomendado: desactivar confirmación en Supabase.)');
+          setLoading('');
+        }
       } else {
-        setError('No se pudo enviar el enlace. Revisa el email e inténtalo de nuevo.');
+        const { error } = await base44.auth.signInWithPassword(email.trim(), password);
+        if (error) throw error;
+        // Sesión iniciada → AuthContext detecta el cambio y entra a la app.
       }
-    }
-    setLoading('');
-  };
-
-  const verifyCode = async (e) => {
-    e.preventDefault();
-    if (code.trim().length < 6) return;
-    setError('');
-    setLoading('code');
-    try {
-      const { error } = await base44.auth.verifyEmailOtp(email, code);
-      if (error) throw error;
-      // Sesión iniciada → AuthContext detecta el cambio y entra a la app.
     } catch (err) {
-      console.error('OTP verify error:', err);
-      setError('Código incorrecto o caducado. Revisa el email o pide uno nuevo.');
+      console.error('Auth error:', err);
+      const msg = err?.message || '';
+      if (/already registered|already exists/i.test(msg)) {
+        setError('Ese email ya tiene cuenta. Cambia a "Iniciar sesión".');
+      } else if (/invalid login credentials/i.test(msg)) {
+        setError('Email o contraseña incorrectos.');
+      } else if (/password/i.test(msg) && /6/.test(msg)) {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+      } else {
+        setError('No se pudo completar. Revisa los datos e inténtalo de nuevo.');
+      }
       setLoading('');
     }
   };
@@ -145,59 +143,34 @@ export default function Login() {
             </>
           )}
 
-          {emailSent ? (
-            <div className="flex flex-col gap-3">
-              <div className="rounded-2xl bg-[#eab308]/10 border border-[#eab308]/30 p-4 text-sm text-[#0f1117] text-left">
-                ✉️ Te hemos enviado un email a <strong>{email}</strong>.<br />
-                <span className="text-[#0f1117]/70">Opción 1: abre el enlace <strong>desde este mismo dispositivo</strong>.</span><br />
-                <span className="text-[#0f1117]/70">Opción 2: escribe aquí el <strong>código de 6 dígitos</strong> del email (sirve desde cualquier dispositivo).</span>
-              </div>
-              <form onSubmit={verifyCode} className="flex flex-col gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
-                  className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-center text-lg tracking-[0.4em] bg-white text-[#0f1117] placeholder:text-[#0f1117]/30 outline-none focus:border-[#eab308]"
-                />
-                <button
-                  type="submit"
-                  disabled={!!loading || code.length < 6}
-                  className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
-                >
-                  {loading === 'code' ? 'Entrando…' : 'Entrar con el código'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setEmailSent(false); setCode(''); setError(''); }}
-                  className="w-full h-9 text-xs text-[#0f1117]/50 hover:text-[#0f1117] transition"
-                >
-                  Usar otro email
-                </button>
-              </form>
-            </div>
-          ) : (
-            <form onSubmit={sendMagicLink} className="flex flex-col gap-2">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
-                className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm bg-white text-[#0f1117] placeholder:text-[#0f1117]/40 outline-none focus:border-[#eab308]"
-              />
-              <button
-                type="submit"
-                disabled={!!loading}
-                className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
-              >
-                {loading === 'email' ? 'Enviando…' : (isRegister ? 'Crear cuenta con mi email' : 'Entrar con mi email')}
-              </button>
-            </form>
-          )}
+          <form onSubmit={submitPassword} className="flex flex-col gap-2">
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@email.com"
+              className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm bg-white text-[#0f1117] placeholder:text-[#0f1117]/40 outline-none focus:border-[#eab308]"
+            />
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isRegister ? 'Crea una contraseña (mín. 6)' : 'Tu contraseña'}
+              className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-sm bg-white text-[#0f1117] placeholder:text-[#0f1117]/40 outline-none focus:border-[#eab308]"
+            />
+            <button
+              type="submit"
+              disabled={!!loading}
+              className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
+            >
+              {loading === 'email' ? 'Un momento…' : (isRegister ? 'Crear cuenta' : 'Iniciar sesión')}
+            </button>
+          </form>
         </div>
 
         {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
