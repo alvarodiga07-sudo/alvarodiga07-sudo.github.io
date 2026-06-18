@@ -29,6 +29,7 @@ export default function Login() {
   const [emailSent, setEmailSent] = useState(false);
   const [mode, setMode] = useState('register'); // 'register' | 'login'
   const isRegister = mode === 'register';
+  const [code, setCode] = useState('');
   // Pon en true cuando Google/Apple OAuth estén configurados en Supabase
   const OAUTH_ENABLED = false;
 
@@ -68,6 +69,22 @@ export default function Login() {
       }
     }
     setLoading('');
+  };
+
+  const verifyCode = async (e) => {
+    e.preventDefault();
+    if (code.trim().length < 6) return;
+    setError('');
+    setLoading('code');
+    try {
+      const { error } = await base44.auth.verifyEmailOtp(email, code);
+      if (error) throw error;
+      // Sesión iniciada → AuthContext detecta el cambio y entra a la app.
+    } catch (err) {
+      console.error('OTP verify error:', err);
+      setError('Código incorrecto o caducado. Revisa el email o pide uno nuevo.');
+      setLoading('');
+    }
   };
 
   return (
@@ -129,9 +146,38 @@ export default function Login() {
           )}
 
           {emailSent ? (
-            <div className="rounded-2xl bg-[#eab308]/10 border border-[#eab308]/30 p-4 text-sm text-[#0f1117]">
-              ✉️ Te hemos enviado un enlace de acceso a <strong>{email}</strong>.
-              Ábrelo desde este dispositivo para entrar.
+            <div className="flex flex-col gap-3">
+              <div className="rounded-2xl bg-[#eab308]/10 border border-[#eab308]/30 p-4 text-sm text-[#0f1117] text-left">
+                ✉️ Te hemos enviado un email a <strong>{email}</strong>.<br />
+                <span className="text-[#0f1117]/70">Opción 1: abre el enlace <strong>desde este mismo dispositivo</strong>.</span><br />
+                <span className="text-[#0f1117]/70">Opción 2: escribe aquí el <strong>código de 6 dígitos</strong> del email (sirve desde cualquier dispositivo).</span>
+              </div>
+              <form onSubmit={verifyCode} className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  className="w-full h-12 rounded-2xl border border-[#0f1117]/10 px-4 text-center text-lg tracking-[0.4em] bg-white text-[#0f1117] placeholder:text-[#0f1117]/30 outline-none focus:border-[#eab308]"
+                />
+                <button
+                  type="submit"
+                  disabled={!!loading || code.length < 6}
+                  className="w-full h-12 rounded-2xl bg-[#eab308] text-[#0f1117] font-bold hover:bg-[#f0c030] transition disabled:opacity-50"
+                >
+                  {loading === 'code' ? 'Entrando…' : 'Entrar con el código'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmailSent(false); setCode(''); setError(''); }}
+                  className="w-full h-9 text-xs text-[#0f1117]/50 hover:text-[#0f1117] transition"
+                >
+                  Usar otro email
+                </button>
+              </form>
             </div>
           ) : (
             <form onSubmit={sendMagicLink} className="flex flex-col gap-2">

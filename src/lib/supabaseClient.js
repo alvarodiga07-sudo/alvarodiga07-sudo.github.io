@@ -194,10 +194,13 @@ const authStore = {
   signInWithApple: () =>
     supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: baseUrl() } }),
 
-  // Login por email sin contraseña (enlace mágico). shouldCreateUser=false → solo inicia sesión
-  // (no crea cuenta), para distinguir "iniciar sesión" de "registrarse".
+  // Login por email sin contraseña (enlace mágico + código). shouldCreateUser=false → solo inicia sesión.
   signInWithEmail: (email, { shouldCreateUser = true } = {}) =>
     supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: baseUrl(), shouldCreateUser } }),
+
+  // Verifica el código de 6 dígitos recibido por email (funciona entre dispositivos)
+  verifyEmailOtp: (email, token) =>
+    supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: 'email' }),
 
   // Comprueba si un nombre de usuario ya está cogido (case-insensitive)
   isUsernameTaken: async (username, exceptId) => {
