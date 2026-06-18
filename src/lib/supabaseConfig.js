@@ -5,5 +5,10 @@
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Si no hay configuración, la app sigue funcionando con localStorage (modo demo).
-export const isSupabaseEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+// INTERRUPTOR MAESTRO de login/cuentas.
+// false = app abierta sin registro (datos en localStorage del navegador).
+// true  = login + cuentas en la nube (Supabase).  ← ponlo en true para reactivar.
+export const AUTH_ENABLED = false;
+
+// Si no hay configuración o el login está apagado, la app funciona con localStorage (sin login).
+export const isSupabaseEnabled = AUTH_ENABLED && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
