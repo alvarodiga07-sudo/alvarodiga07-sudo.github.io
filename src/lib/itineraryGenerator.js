@@ -766,7 +766,7 @@ export async function enrichWithRealFlightPrice(itinerary) {
     presupuesto_estimado: `${Math.round(perPersonTotal * travelers * 0.95)}€ - ${Math.round(perPersonTotal * travelers * 1.1)}€ ${travelers>1?`(${travelers} personas)`:'(1 persona)'} · vuelos + ${days} noches + comidas y actividades`,
     desglose_presupuesto: {
       ...itinerary.desglose_presupuesto,
-      vuelos: `${Math.round(real.price)}€/persona (precio real encontrado, basado en ${real.sampleSize} búsquedas recientes)`,
+      vuelos: `${Math.round(real.price)}€/persona (precio real encontrado, basado en ${real.sampleSize} ${real.sampleSize === 1 ? 'búsqueda reciente' : 'búsquedas recientes'})`,
     },
     vuelos: {
       ...itinerary.vuelos,
