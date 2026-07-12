@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +36,20 @@ export default function Onboarding() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Si el móvil pasa a segundo plano a mitad de la animación de entrada de un paso,
+  // el navegador pausa esa animación y no siempre la reanuda al volver (queda casi
+  // invisible / "bloqueada"). Al recuperar visibilidad, forzamos un remount del paso
+  // actual (vía key) para que la animación se dispare limpia desde el principio.
+  const [visibilityTick, setVisibilityTick] = useState(0);
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setVisibilityTick(t => t + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
   const [form, setForm] = useState({
     username: '',
     display_name: '',
@@ -123,10 +137,13 @@ export default function Onboarding() {
       )}
 
       <div className="flex-1 flex items-center justify-center p-6">
-        <AnimatePresence mode="wait">
+        {/* Sin mode="wait": si la animación de salida del paso anterior se queda
+            congelada (pestaña en segundo plano), el paso nuevo entra igualmente
+            en vez de quedarse esperando una salida que nunca llega. */}
+        <AnimatePresence>
           {step === 0 && (
             <motion.div
-              key="welcome"
+              key={`welcome-${visibilityTick}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -156,7 +173,7 @@ export default function Onboarding() {
 
           {step === 1 && (
             <motion.div
-              key="profile"
+              key={`profile-${visibilityTick}`}
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
@@ -205,7 +222,7 @@ export default function Onboarding() {
 
           {step === 2 && (
             <motion.div
-              key="origin"
+              key={`origin-${visibilityTick}`}
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
@@ -272,7 +289,7 @@ export default function Onboarding() {
 
           {step === 3 && (
             <motion.div
-              key="interests"
+              key={`interests-${visibilityTick}`}
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
