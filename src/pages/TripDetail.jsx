@@ -28,6 +28,36 @@ const STATUS_COLORS = {
 };
 
 // ─── Itinerario IA completo ────────────────────────────────────────────────
+// Sección plegable reutilizable: cabecera clicable (color + icono + título + chevron)
+// y cuerpo que se despliega/pliega. Colapsada por defecto para no saturar la pantalla.
+function CollapsibleSection({ headerBg, icon, title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between gap-2 px-4 py-3 text-left ${headerBg} ${open ? 'border-b border-border' : ''}`}
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {icon}
+          <span className="text-sm font-bold text-foreground truncate">{title}</span>
+        </span>
+        {open
+          ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+            transition={{ duration: 0.22 }} className="overflow-hidden">
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
   const [openDay, setOpenDay] = useState(0);
 
@@ -104,11 +134,11 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
 
       {/* Desglose de presupuesto */}
       {itinerary.desglose_presupuesto && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 border-b border-border">
-            <DollarSign className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-bold text-foreground">Desglose del presupuesto (por persona)</span>
-          </div>
+        <CollapsibleSection
+          headerBg="bg-green-50 dark:bg-green-900/20"
+          icon={<DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" />}
+          title="Desglose del presupuesto"
+        >
           <div className="p-4 space-y-2">
             {Object.entries(itinerary.desglose_presupuesto).map(([k, v]) => {
               const labels = { alojamiento:'🏨 Alojamiento', comida:'🍽️ Comida', actividades:'🎟️ Actividades', transporte:'🚕 Transporte', vuelos:'✈️ Vuelos' };
@@ -120,16 +150,16 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               );
             })}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Vuelos */}
       {itinerary.vuelos && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-border">
-            <Plane className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-bold text-foreground">Vuelos</span>
-          </div>
+        <CollapsibleSection
+          headerBg="bg-blue-50 dark:bg-blue-900/20"
+          icon={<Plane className="w-4 h-4 text-blue-600 flex-shrink-0" />}
+          title="Vuelos"
+        >
           <div className="p-4 space-y-2">
             {itinerary.vuelos.precio_aproximado && (
               <p className="text-xs text-foreground"><span className="font-semibold">Precio aprox.:</span> {itinerary.vuelos.precio_aproximado}</p>
@@ -168,16 +198,16 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               )}
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Hoteles */}
       {itinerary.hoteles && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-border">
-            <Hotel className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-bold text-foreground">Alojamiento</span>
-          </div>
+        <CollapsibleSection
+          headerBg="bg-amber-50 dark:bg-amber-900/20"
+          icon={<Hotel className="w-4 h-4 text-amber-600 flex-shrink-0" />}
+          title="Alojamiento"
+        >
           <div className="p-4 space-y-2">
             {itinerary.hoteles.zona_recomendada && (
               <p className="text-xs text-foreground"><span className="font-semibold">Zona recomendada:</span> {itinerary.hoteles.zona_recomendada}</p>
@@ -223,16 +253,16 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               )}
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Extras (Bloque B): coches, eSIM, actividades, traslados, tren/bus, seguro */}
       {itinerary.extras && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-secondary border-b border-border">
-            <span className="text-base">🧰</span>
-            <span className="text-sm font-bold text-foreground">Completa tu viaje</span>
-          </div>
+        <CollapsibleSection
+          headerBg="bg-secondary"
+          icon={<span className="text-base">🧰</span>}
+          title="Completa tu viaje"
+        >
           <div className="p-4 space-y-2.5">
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-1">
               Todo lo demás que puedes necesitar. Los marcados con ✨ se abren ya con tu destino puesto.
@@ -263,19 +293,24 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               );
             })}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Consejos de ahorro */}
       {itinerary.consejos_ahorro?.length > 0 && (
-        <div className="bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800 p-4">
-          <p className="text-xs font-bold text-green-700 dark:text-green-400 mb-2">💡 Consejos de ahorro</p>
-          {itinerary.consejos_ahorro.map((c, i) => (
-            <p key={i} className="text-xs text-green-800 dark:text-green-300 flex items-start gap-1.5 mb-1">
-              <span>•</span>{c}
-            </p>
-          ))}
-        </div>
+        <CollapsibleSection
+          headerBg="bg-green-50 dark:bg-green-900/20"
+          icon={<span className="text-base">💡</span>}
+          title="Consejos de ahorro"
+        >
+          <div className="p-4">
+            {itinerary.consejos_ahorro.map((c, i) => (
+              <p key={i} className="text-xs text-foreground flex items-start gap-1.5 mb-1.5 last:mb-0">
+                <span className="text-green-600">•</span>{c}
+              </p>
+            ))}
+          </div>
+        </CollapsibleSection>
       )}
 
       {/* Días del itinerario */}
