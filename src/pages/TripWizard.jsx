@@ -179,6 +179,15 @@ export default function TripWizard() {
   const [aiMsg, setAiMsg] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showKeyPrompt, setShowKeyPrompt] = useState(false);
+  // Igual que en Onboarding: si el móvil pasa a segundo plano a mitad de la
+  // animación de un paso, el navegador la congela y el paso se queda invisible
+  // ("en blanco"). Al volver a estar visible, forzamos un remount limpio del paso.
+  const [visibilityTick, setVisibilityTick] = useState(0);
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') setVisibilityTick(t => t + 1); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const [form, setForm] = useState({
     origin_country:'', origin_city:'',
@@ -433,11 +442,12 @@ export default function TripWizard() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-sm mx-auto px-5 py-4">
-          <AnimatePresence mode="wait">
+          {/* Sin mode="wait": evita que una animación de salida congelada bloquee la entrada del paso siguiente */}
+          <AnimatePresence>
 
             {/* PASO 0: Destino + ciudades */}
             {step === 0 && (
-              <motion.div key="dest" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
+              <motion.div key={`dest-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">
                   {isSurprise ? '🎲 Destino sorpresa' : '¿A dónde viajas?'}
                 </h2>
@@ -519,7 +529,7 @@ export default function TripWizard() {
 
             {/* PASO 1: Fechas */}
             {step === 1 && (
-              <motion.div key="dates" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
+              <motion.div key={`dates-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">Fechas del viaje</h2>
                 <Field label="Fecha de salida">
                   <Input type="date" value={form.start_date} onChange={e => up('start_date', e.target.value)} className="h-11 rounded-xl" />
@@ -547,7 +557,7 @@ export default function TripWizard() {
 
             {/* PASO 2: Presupuesto + prioridades */}
             {step === 2 && (
-              <motion.div key="budget" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
+              <motion.div key={`budget-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">Presupuesto *</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {BUDGETS.map(b => (
@@ -601,7 +611,7 @@ export default function TripWizard() {
 
             {/* PASO 3: Viajeros */}
             {step === 3 && (
-              <motion.div key="travelers" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
+              <motion.div key={`travelers-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">¿Quién viaja?</h2>
                 <Field label="¿Con quién vas?">
                   <div className="grid grid-cols-3 gap-2">
@@ -653,7 +663,7 @@ export default function TripWizard() {
 
             {/* PASO 4: Tipo */}
             {step === 4 && (
-              <motion.div key="type" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
+              <motion.div key={`type-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">Tipo de viaje *</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {TRIP_TYPES.map(t => (
@@ -669,7 +679,7 @@ export default function TripWizard() {
 
             {/* PASO 5: Preferencias CONTEXTUALES */}
             {step === 5 && (
-              <motion.div key="prefs" initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5 pb-4">
+              <motion.div key={`prefs-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5 pb-4">
                 <h2 className="text-2xl font-bold text-center">Tus preferencias</h2>
 
                 <Field label="¿Qué te gusta hacer? (elige varios)">

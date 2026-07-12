@@ -133,6 +133,7 @@ export default function ItineraryView({ itinerary }) {
     { id: 'practica', label: 'Info práctica', icon: '📋' },
     { id: 'vuelos', label: 'Vuelos', icon: '✈️' },
     { id: 'hoteles', label: 'Hoteles', icon: '🏨' },
+    ...(itinerary.extras ? [{ id: 'extras', label: 'Extras', icon: '🧰' }] : []),
   ];
 
   return (
@@ -308,6 +309,46 @@ export default function ItineraryView({ itinerary }) {
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Extras (Bloque B) */}
+      {tab === 'extras' && itinerary.extras && (
+        <div className="space-y-3">
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">🧰</span>
+              <p className="text-sm font-bold text-foreground">Completa tu viaje</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Todo lo que puedes necesitar además del vuelo y el hotel. Los marcados con ✨ se abren ya con tu destino puesto.
+            </p>
+          </div>
+          {[
+            { key: 'actividades', icon: '🎟️', titulo: 'Actividades y tours' },
+            { key: 'esim', icon: '📱', titulo: 'eSIM / datos móviles' },
+            { key: 'coches', icon: '🚗', titulo: 'Alquiler de coche' },
+            { key: 'traslados', icon: '🚕', titulo: 'Traslado del aeropuerto' },
+            { key: 'transporte', icon: '🚆', titulo: 'Tren / bus entre ciudades' },
+            { key: 'seguro', icon: '🛡️', titulo: 'Seguro de viaje' },
+          ].filter(row => itinerary.extras[row.key]).map(row => {
+            const ex = itinerary.extras[row.key];
+            return (
+              <a key={row.key} href={ex.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
+                <span className="text-2xl flex-shrink-0">{row.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-foreground">{row.titulo}</p>
+                    {ex.prellenado && <span className="text-[10px]" title="Se abre con tu destino ya puesto">✨</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{ex.desc}</p>
+                  {ex.marca && <p className="text-[10px] text-primary font-medium mt-1">vía {ex.marca}</p>}
+                </div>
+                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </a>
+            );
+          })}
         </div>
       )}
     </div>

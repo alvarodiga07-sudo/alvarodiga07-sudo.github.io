@@ -226,6 +226,46 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         </div>
       )}
 
+      {/* Extras (Bloque B): coches, eSIM, actividades, traslados, tren/bus, seguro */}
+      {itinerary.extras && (
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 bg-secondary border-b border-border">
+            <span className="text-base">🧰</span>
+            <span className="text-sm font-bold text-foreground">Completa tu viaje</span>
+          </div>
+          <div className="p-4 space-y-2.5">
+            <p className="text-[11px] text-muted-foreground leading-relaxed mb-1">
+              Todo lo demás que puedes necesitar. Los marcados con ✨ se abren ya con tu destino puesto.
+            </p>
+            {[
+              { key: 'actividades', icon: '🎟️', titulo: 'Actividades y tours' },
+              { key: 'esim', icon: '📱', titulo: 'eSIM / datos móviles' },
+              { key: 'coches', icon: '🚗', titulo: 'Alquiler de coche' },
+              { key: 'traslados', icon: '🚕', titulo: 'Traslado del aeropuerto' },
+              { key: 'transporte', icon: '🚆', titulo: 'Tren / bus entre ciudades' },
+              { key: 'seguro', icon: '🛡️', titulo: 'Seguro de viaje' },
+            ].filter(row => itinerary.extras[row.key]).map(row => {
+              const ex = itinerary.extras[row.key];
+              return (
+                <a key={row.key} href={ex.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary/50 transition-all">
+                  <span className="text-xl flex-shrink-0">{row.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-foreground">{row.titulo}</p>
+                      {ex.prellenado && <span className="text-[10px]" title="Se abre con tu destino ya puesto">✨</span>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{ex.desc}</p>
+                    {ex.marca && <p className="text-[10px] text-primary font-medium mt-0.5">vía {ex.marca}</p>}
+                  </div>
+                  <span className="text-muted-foreground flex-shrink-0 text-xs">→</span>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Consejos de ahorro */}
       {itinerary.consejos_ahorro?.length > 0 && (
         <div className="bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-200 dark:border-green-800 p-4">

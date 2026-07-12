@@ -251,6 +251,8 @@ export async function generateItinerary(tripData, onProgress) {
             url_busqueda_expedia: localResult.hoteles.url_busqueda_expedia,
             url_busqueda_hotelscom: localResult.hoteles.url_busqueda_hotelscom,
           },
+          // Los extras (coches, eSIM, actividades...) los construye siempre el local
+          extras: localResult.extras,
           _source: 'claude',
         };
       }

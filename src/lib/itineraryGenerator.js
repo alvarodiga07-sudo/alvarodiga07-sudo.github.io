@@ -678,6 +678,18 @@ export function generateLocalItinerary(trip) {
     (start_date ? `&startDate=${start_date}` : '') + (end_date ? `&endDate=${end_date}` : '') +
     `&adults=${travelers}`;
 
+  // ── Extras (Bloque B): coches, eSIM, actividades, traslados, tren/bus, seguro ──
+  // Solo se pre-rellenan los que sus webs soportan de forma fiable (verificado en vivo):
+  // GetYourGuide por ciudad y Airalo por país. El resto lleva a su buscador sin
+  // parámetros inventados (mejor eso que un deep-link que caiga en 404).
+  const gygUrl = `https://www.getyourguide.com/s/?q=${encodeURIComponent(cities[0])}`;
+  const airaloSlug = (_destCountryName || '').toLowerCase().trim().replace(/\s+/g, '-');
+  const airaloUrl = airaloSlug ? `https://www.airalo.com/${airaloSlug}-esim` : 'https://www.airalo.com/';
+  const discovercarsUrl = 'https://www.discovercars.com/';
+  const welcomePickupsUrl = 'https://www.welcomepickups.com/';
+  const omioUrl = 'https://www.omio.com/';
+  const seguroUrl = 'https://www.heymondo.com/';
+
   return {
     _source: 'local',
     // Guardados para poder recalcular precios con datos reales después (ver enrichWithRealFlightPrice)
@@ -722,6 +734,20 @@ export function generateLocalItinerary(trip) {
       url_busqueda_airbnb: airbnbUrl,
       url_busqueda_expedia: expediaUrl,
       url_busqueda_hotelscom: hotelscomUrl,
+    },
+    extras: {
+      actividades: { url: gygUrl, marca: 'GetYourGuide', prellenado: true,
+        desc: `Tours, entradas y experiencias en ${cities[0]}, con cancelación gratuita.` },
+      esim: { url: airaloUrl, marca: 'Airalo', prellenado: !!airaloSlug,
+        desc: `Datos móviles desde que aterrizas, sin cambiar de tarjeta${_destCountryName ? ` (${_destCountryName})` : ''}.` },
+      coches: { url: discovercarsUrl, marca: 'DiscoverCars', prellenado: false,
+        desc: 'Compara alquiler de coche con cancelación gratis.' },
+      traslados: { url: welcomePickupsUrl, marca: 'Welcome Pickups', prellenado: false,
+        desc: 'Traslado del aeropuerto al hotel con conductor que te espera.' },
+      transporte: { url: omioUrl, marca: 'Omio', prellenado: false,
+        desc: 'Trenes, buses y ferris entre ciudades, comparados en un sitio.' },
+      seguro: { url: seguroUrl, marca: 'Heymondo', prellenado: false,
+        desc: 'Seguro de viaje con cobertura médica y cancelación.' },
     },
     dias,
     info_practica: {
