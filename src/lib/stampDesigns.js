@@ -176,7 +176,7 @@ export const STAMP_PNG_MAP = {
   PK: "Pakistan.png",
   PW: "Palaos.png",
   PA: "Panama.png",
-  PG: "Papúa NuevaGuinea.png",
+  PG: "Papua NuevaGuinea.png",
   PY: "Paraguay.png",
   NL: "Paises_Bajos.png",
   PE: "Peru.png",

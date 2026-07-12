@@ -19,6 +19,7 @@ import TripVideoTab from '@/components/trips/TripVideoTab';
 import { toast } from 'sonner';
 import { generateItinerary } from '@/lib/claudeAI';
 import { COUNTRIES } from '@/lib/countries';
+import { buildSearchLinks } from '@/lib/searchLinks';
 
 const STATUS_LABELS = { planning: 'Planeando', active: 'Activo', completed: 'Completado' };
 const STATUS_COLORS = {
@@ -60,6 +61,9 @@ function CollapsibleSection({ headerBg, icon, title, defaultOpen = false, childr
 
 function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
   const [openDay, setOpenDay] = useState(0);
+  // Enlaces SIEMPRE frescos desde los datos del viaje (fechas, personas, presupuesto).
+  // Prevalecen sobre las URLs congeladas dentro de ai_itinerary (viajes antiguos).
+  const links = buildSearchLinks(trip);
 
   if (!itinerary) return (
     <div className="bg-card rounded-2xl border border-dashed border-primary/30 p-8 text-center">
@@ -178,20 +182,20 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               </div>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-              {itinerary.vuelos.url_busqueda && (
-                <a href={itinerary.vuelos.url_busqueda} target="_blank" rel="noopener noreferrer"
+              {(links?.vuelos.skyscanner || itinerary.vuelos.url_busqueda) && (
+                <a href={links?.vuelos.skyscanner || itinerary.vuelos.url_busqueda} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Plane className="w-3 h-3" /> Skyscanner →
                 </a>
               )}
-              {itinerary.vuelos.url_busqueda_kiwi && (
-                <a href={itinerary.vuelos.url_busqueda_kiwi} target="_blank" rel="noopener noreferrer"
+              {(links?.vuelos.kiwi || itinerary.vuelos.url_busqueda_kiwi) && (
+                <a href={links?.vuelos.kiwi || itinerary.vuelos.url_busqueda_kiwi} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Plane className="w-3 h-3" /> Kiwi.com →
                 </a>
               )}
-              {itinerary.vuelos.url_busqueda_google && (
-                <a href={itinerary.vuelos.url_busqueda_google} target="_blank" rel="noopener noreferrer"
+              {(links?.vuelos.google || itinerary.vuelos.url_busqueda_google) && (
+                <a href={links?.vuelos.google || itinerary.vuelos.url_busqueda_google} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Plane className="w-3 h-3" /> Google Flights →
                 </a>
@@ -227,26 +231,26 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               </div>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-              {itinerary.hoteles.url_busqueda && (
-                <a href={itinerary.hoteles.url_busqueda} target="_blank" rel="noopener noreferrer"
+              {(links?.hoteles.booking || itinerary.hoteles.url_busqueda) && (
+                <a href={links?.hoteles.booking || itinerary.hoteles.url_busqueda} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Hotel className="w-3 h-3" /> Booking.com →
                 </a>
               )}
-              {itinerary.hoteles.url_busqueda_airbnb && (
-                <a href={itinerary.hoteles.url_busqueda_airbnb} target="_blank" rel="noopener noreferrer"
+              {(links?.hoteles.airbnb || itinerary.hoteles.url_busqueda_airbnb) && (
+                <a href={links?.hoteles.airbnb || itinerary.hoteles.url_busqueda_airbnb} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Hotel className="w-3 h-3" /> Airbnb →
                 </a>
               )}
-              {itinerary.hoteles.url_busqueda_expedia && (
-                <a href={itinerary.hoteles.url_busqueda_expedia} target="_blank" rel="noopener noreferrer"
+              {(links?.hoteles.expedia || itinerary.hoteles.url_busqueda_expedia) && (
+                <a href={links?.hoteles.expedia || itinerary.hoteles.url_busqueda_expedia} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Hotel className="w-3 h-3" /> Expedia →
                 </a>
               )}
-              {itinerary.hoteles.url_busqueda_hotelscom && (
-                <a href={itinerary.hoteles.url_busqueda_hotelscom} target="_blank" rel="noopener noreferrer"
+              {(links?.hoteles.hotelscom || itinerary.hoteles.url_busqueda_hotelscom) && (
+                <a href={links?.hoteles.hotelscom || itinerary.hoteles.url_busqueda_hotelscom} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
                   <Hotel className="w-3 h-3" /> Hotels.com →
                 </a>
@@ -256,8 +260,10 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         </CollapsibleSection>
       )}
 
-      {/* Extras (Bloque B): coches, eSIM, actividades, traslados, tren/bus, seguro */}
-      {itinerary.extras && (
+      {/* Extras (Bloque B): coches, eSIM, actividades, traslados, tren/bus, seguro.
+          Se calculan al vuelo (links.extras) para que también aparezcan en viajes
+          creados antes de esta función. */}
+      {(links?.extras || itinerary.extras) && (
         <CollapsibleSection
           headerBg="bg-secondary"
           icon={<span className="text-base">🧰</span>}
@@ -274,8 +280,8 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               { key: 'traslados', icon: '🚕', titulo: 'Traslado del aeropuerto' },
               { key: 'transporte', icon: '🚆', titulo: 'Tren / bus entre ciudades' },
               { key: 'seguro', icon: '🛡️', titulo: 'Seguro de viaje' },
-            ].filter(row => itinerary.extras[row.key]).map(row => {
-              const ex = itinerary.extras[row.key];
+            ].filter(row => (links?.extras || itinerary.extras)[row.key]).map(row => {
+              const ex = (links?.extras || itinerary.extras)[row.key];
               return (
                 <a key={row.key} href={ex.url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary/50 transition-all">
@@ -643,8 +649,28 @@ export default function TripDetail() {
 
   const handleMarkCompleted = async () => {
     await base44.entities.Trip.update(tripId, { status: 'completed' });
+    // Asegurar que existe el sello del pasaporte para este viaje (viajes antiguos
+    // o creados por otras vías pueden no tenerlo — sin sello, el pasaporte no lo muestra).
+    try {
+      const existing = await base44.entities.PassportStamp.filter({ trip_id: tripId });
+      if (!existing || existing.length === 0) {
+        const countryData = COUNTRIES.find(c => c.code === trip?.destination_country);
+        if (countryData) {
+          await base44.entities.PassportStamp.create({
+            country_code: trip.destination_country,
+            country_name: countryData.name,
+            trip_id: tripId,
+            visit_date: trip.start_date || new Date().toISOString().split('T')[0],
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudo asegurar el sello del pasaporte:', e);
+    }
     queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
-    toast.success('Viaje completado');
+    queryClient.invalidateQueries({ queryKey: ['trips'] });
+    queryClient.invalidateQueries({ queryKey: ['stamps'] });
+    toast.success('Viaje completado — sello añadido al pasaporte');
   };
 
   const handleRegenerate = async () => {

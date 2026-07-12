@@ -115,7 +115,11 @@ export default function Passport() {
           await base44.auth.updateMe({ countries_visited: [...visited, pastTripForm.destination_country] });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['trips', 'stamps', 'currentUser'] });
+      // OJO: una sola llamada con ['trips','stamps','currentUser'] sería UNA clave
+      // compuesta (no invalida nada) — por eso los sellos no aparecían hasta recargar.
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      queryClient.invalidateQueries({ queryKey: ['stamps'] });
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       toast.success('Viaje pasado agregado');
       setShowAddPastTrip(false);
       setPastTripForm({ destination_country: '', destination_city: '', trip_type: 'leisure', start_date: '', duration_days: '', title: '', notes: '', highlights: '' });
