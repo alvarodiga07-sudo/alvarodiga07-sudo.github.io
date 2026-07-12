@@ -4,7 +4,7 @@ import { Bell, Settings } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
-const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
+const LOGO_URL = "/brand/logo.png";
 
 export default function HomeHeader({ user, notificationCount = 0 }) {
   const initials = (user?.display_name || user?.full_name || 'U').slice(0, 2).toUpperCase();

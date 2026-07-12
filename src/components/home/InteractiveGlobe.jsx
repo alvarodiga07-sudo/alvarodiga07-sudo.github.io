@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ComposableMap, Geographies, Geography, Sphere, Graticule, Marker } from 'react-simple-maps';
 import { geoOrthographic } from 'd3-geo';
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+// Mapa mundial empaquetado con la app (108KB): carga instantánea y sin depender
+// de un CDN externo (antes, si jsdelivr fallaba, el globo quedaba en blanco).
+import GEO_URL from 'world-atlas/countries-110m.json?url';
 
 const N2A = {
   "004":"AF","008":"AL","012":"DZ","020":"AD","024":"AO","028":"AG","032":"AR",
@@ -265,19 +267,36 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
   const rotRef = useRef([...INIT_ROT]);
   const zoomRef = useRef(1);
 
+  const containerRef = useRef(null);
+  const onScreenRef = useRef(true);
+
+  // Pausar el giro cuando el globo no está en pantalla: re-proyectar 180 países
+  // con nadie mirando era el mayor derroche de batería/CPU de toda la app.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(([entry]) => { onScreenRef.current = entry.isIntersecting; });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     let alive = true;
+    let frame = 0;
     function tick() {
       if (!alive) return;
-      if (!isDragging.current && zoomRef.current <= 1.05) {
+      frame++;
+      // El giro pasivo va a 30fps (1 de cada 2 frames): a 0.24°/paso se ve igual
+      // de suave y cuesta la mitad de CPU. El arrastre del usuario sigue a 60fps.
+      if (!isDragging.current && zoomRef.current <= 1.05 && onScreenRef.current && frame % 2 === 0) {
         // Only spin on X axis (east→west). Dampen Y back toward 20° (equatorial view)
         velocity.current.x *= 0.96;
         velocity.current.y *= 0.90; // dampen tilt faster
-        if (Math.abs(velocity.current.x) < 0.04) velocity.current.x = 0.12;
+        if (Math.abs(velocity.current.x) < 0.08) velocity.current.x = 0.24;
         // Gently return latitude toward 20° when not dragging
         const targetLat = 20;
         const curLat = rotRef.current[1];
-        const returnY = (targetLat - curLat) * 0.02;
+        const returnY = (targetLat - curLat) * 0.04;
         rotRef.current = [
           rotRef.current[0] - velocity.current.x,
           curLat + velocity.current.y + returnY,
@@ -309,9 +328,21 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
     lastPos.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  const onMouseUp = useCallback(() => { isDragging.current = false; }, []);
+  const onMouseUp = useCallback(() => { isDragging.current = false; pinchDist.current = 0; }, []);
+
+  // Pellizco (2 dedos) para zoom en móvil — antes solo había botones [+]/[−].
+  const pinchDist = useRef(0);
+  const touchDist = (e) => Math.hypot(
+    e.touches[0].clientX - e.touches[1].clientX,
+    e.touches[0].clientY - e.touches[1].clientY
+  );
 
   const onTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      isDragging.current = false;
+      pinchDist.current = touchDist(e);
+      return;
+    }
     if (e.touches.length !== 1) return;
     isDragging.current = true; hasMoved.current = false;
     lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -319,6 +350,16 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
   }, []);
 
   const onTouchMove = useCallback((e) => {
+    if (e.touches.length === 2 && pinchDist.current > 0) {
+      e.preventDefault();
+      hasMoved.current = true;
+      const d = touchDist(e);
+      const ratio = d / pinchDist.current;
+      zoomRef.current = Math.max(1, Math.min(ZOOM_MAX, zoomRef.current * ratio));
+      setZoom(zoomRef.current);
+      pinchDist.current = d;
+      return;
+    }
     if (!isDragging.current || e.touches.length !== 1) return;
     e.preventDefault();
     const dx = e.touches[0].clientX - lastPos.current.x, dy = e.touches[0].clientY - lastPos.current.y;
@@ -371,12 +412,14 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
   // Directamente en el map render (abajo) para asegurar rotación actual
 
   return (
-    <div style={{ width: size, height: size, position: 'relative', userSelect: 'none' }}>
+    <div ref={containerRef} style={{ width: size, height: size, position: 'relative', userSelect: 'none' }}>
       <div
         style={{
           width: size, height: size, borderRadius: '50%', overflow: 'hidden',
-          boxShadow: '0 4px 32px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(0,0,0,0.08)',
+          // Halo atmosférico azulado + sombra: el globo "flota" como la Tierra real
+          boxShadow: '0 0 22px rgba(126,166,194,0.55), 0 4px 32px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(0,0,0,0.08)',
           cursor: isDragging.current ? 'grabbing' : 'grab',
+          touchAction: 'none',
         }}
         onMouseDown={onMouseDown} onMouseMove={onMouseMove}
         onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
@@ -389,7 +432,15 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
           width={size} height={size}
           style={{ width: '100%', height: '100%', display: 'block' }}
         >
-          <Sphere id="ocean" fill="#b8cfe0" stroke="#8aafc7" strokeWidth={0.8} />
+          {/* Océano con profundidad (gradiente radial descentrado = luz solar) */}
+          <defs>
+            <radialGradient id="oceanGrad" cx="38%" cy="34%" r="72%">
+              <stop offset="0%" stopColor="#d7e9f5" />
+              <stop offset="55%" stopColor="#aecfe3" />
+              <stop offset="100%" stopColor="#7fa6c2" />
+            </radialGradient>
+          </defs>
+          <Sphere id="ocean" fill="url(#oceanGrad)" stroke="#8aafc7" strokeWidth={0.8} />
           <Graticule stroke="#9ab8cc" strokeWidth={0.25} step={[20, 20]} />
 
           <Geographies geography={GEO_URL}>
@@ -400,11 +451,11 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
                 return (
                   <Geography key={geo.rsmKey} geography={geo}
                     onClick={() => alpha2 && handleCountryClick(alpha2)}
-                    fill={visited ? '#eab308' : '#c8d0d8'}
+                    fill={visited ? '#eab308' : '#dfe5da'}
                     stroke="#ffffff" strokeWidth={0.4}
                     style={{
                       default: { outline: 'none', cursor: visited ? 'pointer' : 'default' },
-                      hover: { outline: 'none', fill: visited ? '#f0c030' : '#dde3e8', cursor: visited ? 'pointer' : 'default' },
+                      hover: { outline: 'none', fill: visited ? '#f0c030' : '#ecf0e8', cursor: visited ? 'pointer' : 'default' },
                       pressed: { outline: 'none' },
                     }}
                   />

@@ -12,7 +12,7 @@ import { COUNTRIES } from '@/lib/countries';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
+const LOGO_URL = "/brand/logo.png";
 
 const INTERESTS = [
   { id: 'beach', label: 'Playa', icon: '🏖️' },
@@ -95,6 +95,9 @@ export default function Onboarding() {
       await base44.auth.updateMe({
         ...form,
         username: uname,
+        // El pasaporte se asume igual al país de origen (se puede cambiar en Ajustes).
+        // Antes eran dos preguntas casi idénticas en el onboarding y confundía.
+        passport_country: form.passport_country || form.country_of_origin,
         onboarding_complete: true,
       });
       // Refetch ANTES de navegar para que onboarding_complete=true esté ya cargado (evita el bucle)
@@ -112,7 +115,7 @@ export default function Onboarding() {
 
   const canNext = () => {
     if (step === 1) return form.username.length >= 3 && form.display_name.length >= 2;
-    if (step === 2) return form.country_of_origin && form.passport_country;
+    if (step === 2) return !!form.country_of_origin;
     return true;
   };
 
@@ -249,37 +252,6 @@ export default function Onboarding() {
                           {c.emoji} {c.name}
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">País de pasaporte</Label>
-                  <Select value={form.passport_country} onValueChange={(v) => updateForm('passport_country', v)}>
-                    <SelectTrigger className="mt-1.5 h-11 rounded-xl">
-                      <SelectValue placeholder="Selecciona tu pasaporte" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {COUNTRIES.map(c => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.emoji} {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Idioma</Label>
-                  <Select value={form.language} onValueChange={(v) => updateForm('language', v)}>
-                    <SelectTrigger className="mt-1.5 h-11 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="es">🇪🇸 Español</SelectItem>
-                      <SelectItem value="en">🇬🇧 English</SelectItem>
-                      <SelectItem value="fr">🇫🇷 Français</SelectItem>
-                      <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
-                      <SelectItem value="pt">🇵🇹 Português</SelectItem>
-                      <SelectItem value="it">🇮🇹 Italiano</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

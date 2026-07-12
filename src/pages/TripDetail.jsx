@@ -182,6 +182,12 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
               </div>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+              {links?.vuelos.aviasales && (
+                <a href={links.vuelos.aviasales} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Plane className="w-3 h-3" /> Aviasales →
+                </a>
+              )}
               {(links?.vuelos.skyscanner || itinerary.vuelos.url_busqueda) && (
                 <a href={links?.vuelos.skyscanner || itinerary.vuelos.url_busqueda} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">

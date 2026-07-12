@@ -5,6 +5,7 @@
 // personas y filtro de presupuesto ya puestos.
 import { getCityIata, getOriginIata } from './destinationData';
 import { COUNTRIES } from './countries';
+import { buildAviasalesSearchUrl, wrapAffiliate } from './affiliate';
 
 // Rango de precio POR NOCHE (habitación/alojamiento entero) según nivel de presupuesto.
 // Se usa en los filtros de Booking y Airbnb. Rangos amplios a propósito: filtrar
@@ -82,9 +83,17 @@ export function buildSearchLinks(trip) {
       desc: 'Seguro de viaje con cobertura médica y cancelación.' },
   };
 
+  // Aviasales lleva el marker de afiliado → genera comisión por reserva.
+  const aviasales = buildAviasalesSearchUrl({ oIata, dIata, start, end, travelers });
+
   return {
-    vuelos: { skyscanner, kiwi, google },
-    hoteles: { booking, airbnb, expedia, hotelscom },
+    vuelos: { aviasales, skyscanner, kiwi, google },
+    hoteles: {
+      booking: wrapAffiliate(booking, 'booking'),
+      airbnb, // Airbnb no está en Travelpayouts — siempre directo
+      expedia: wrapAffiliate(expedia, 'expedia'),
+      hotelscom: wrapAffiliate(hotelscom, 'hotelscom'),
+    },
     extras,
   };
 }

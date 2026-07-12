@@ -13,7 +13,7 @@ import { getCountryName, getCountryEmoji, COUNTRIES } from '@/lib/countries';
 import StampItem from '@/components/passport/StampItem';
 import { toast } from 'sonner';
 
-const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
+const LOGO_URL = "/brand/logo.png";
 
 // Passport cover colors by country
 const PASSPORT_COLORS = {

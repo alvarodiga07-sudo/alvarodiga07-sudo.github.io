@@ -26,7 +26,7 @@ import SocialFeed from './pages/SocialFeed';
 // Layout
 import AppLayout from './components/layout/AppLayout';
 
-const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
+const LOGO_URL = "/brand/logo.png";
 
 // Hook para aplicar el tema oscuro/claro al <html>
 function useThemeApplier() {

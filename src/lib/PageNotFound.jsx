@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-const LOGO_URL = "https://media.base44.com/images/public/user_69aea125734ce6b1da596dd5/ce9f50f11_IMG_05283.png";
+const LOGO_URL = "/brand/logo.png";
 
 export default function PageNotFound() {
   const location = useLocation();

@@ -183,16 +183,15 @@ export default function Settings() {
             </div>
             <div>
               <Label className="text-xs">Idioma</Label>
-              <Select value={form.language} onValueChange={(v) => update('language', v)}>
+              {/* Solo se ofrecen idiomas que la app tiene de verdad. Inglés y más,
+                  cuando haya sistema de traducciones (i18n) — no antes. */}
+              <Select value="es" disabled>
                 <SelectTrigger className="mt-1 h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="es">🇪🇸 Español</SelectItem>
-                  <SelectItem value="en">🇬🇧 English</SelectItem>
-                  <SelectItem value="fr">🇫🇷 Français</SelectItem>
-                  <SelectItem value="de">🇩🇪 Deutsch</SelectItem>
-                  <SelectItem value="pt">🇵🇹 Português</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">Más idiomas, próximamente.</p>
             </div>
           </div>
         </Section>

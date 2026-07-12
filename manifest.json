@@ -1,0 +1,17 @@
+{
+  "name": "Waddle - Travel Smart",
+  "short_name": "Waddle",
+  "description": "Tu compañero inteligente de viajes. Planifica, explora, recuerda y comparte.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0b10",
+  "theme_color": "#eab308",
+  "icons": [
+    {
+      "src": "/brand/logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

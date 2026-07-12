@@ -28,13 +28,18 @@ export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
       className="relative flex flex-col items-center gap-1.5"
     >
       {showPng ? (
-        <img
-          src={pngUrl}
-          alt={stamp.country_name}
-          onError={() => setImgError(true)}
-          className="w-full max-w-[150px] aspect-square object-contain drop-shadow-md"
-          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))' }}
-        />
+        /* WebP (~50KB) con fallback automático a PNG (~400KB) en navegadores viejos */
+        <picture>
+          <source srcSet={pngUrl.replace(/\.png$/i, '.webp')} type="image/webp" />
+          <img
+            src={pngUrl}
+            alt={stamp.country_name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className="w-full max-w-[150px] aspect-square object-contain drop-shadow-md"
+            style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.18))' }}
+          />
+        </picture>
       ) : (
         <div
           className={`${design.shape === 'circle' ? 'rounded-full' : 'rounded-xl'} w-full max-w-[140px] aspect-square
