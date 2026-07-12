@@ -207,16 +207,20 @@ Responde ÚNICAMENTE con este JSON (sin texto adicional, sin markdown):
 IMPORTANTE: genera exactamente ${days} objetos en "dias". Todo en español.`;
 }
 
-import { generateLocalItinerary } from './itineraryGenerator';
+import { generateLocalItinerary, enrichWithRealFlightPrice } from './itineraryGenerator';
 
 // Genera el itinerario completo. Estrategia:
 // 1. Generador LOCAL (instantáneo, gratis, datos reales) → SIEMPRE produce resultado.
 // 2. Si hay una API de pago configurada y con créditos, intenta mejorarlo.
 //    (Ollama/WebLLM locales son demasiado lentos/débiles para JSON complejo,
 //     así que el local curado da mejor experiencia y nunca se cuelga.)
+// 3. En paralelo, intenta sustituir la estimación de vuelo por un precio real
+//    de mercado (Aviasales). Si no hay dato disponible, no cambia nada.
 export async function generateItinerary(tripData, onProgress) {
   // Base local SIEMPRE disponible — esto garantiza que el usuario reciba su itinerario
   const localResult = generateLocalItinerary(tripData);
+
+  let result = localResult;
 
   // Si hay API key de Claude (de pago, con créditos), intentar enriquecer
   if (hasApiKey()) {
@@ -224,7 +228,31 @@ export async function generateItinerary(tripData, onProgress) {
       const aiResult = await callClaude(buildPrompt(tripData));
       // Validar que el resultado de IA tenga la estructura mínima esperada
       if (aiResult && Array.isArray(aiResult.dias) && aiResult.dias.length > 0) {
-        return { ...aiResult, _source: 'claude' };
+        // Los enlaces de búsqueda (Skyscanner/Kiwi/Google Flights/Booking/Airbnb) los
+        // calcula siempre el generador local con fechas/origen/viajeros reales — la IA
+        // solo inventa texto plausible para esas URLs, así que se sobrescriben aquí
+        // sin tocar el resto del contenido (tips, aerolíneas, etc.) que sí aporta la IA.
+        result = {
+          ...aiResult,
+          // Campos internos del local (IATA, viajeros, días...) para poder enriquecer con precio real debajo
+          _oIata: localResult._oIata, _dIata: localResult._dIata,
+          _travelers: localResult._travelers, _days: localResult._days,
+          _perPersonDayCost: localResult._perPersonDayCost,
+          vuelos: {
+            ...aiResult.vuelos,
+            url_busqueda: localResult.vuelos.url_busqueda,
+            url_busqueda_kiwi: localResult.vuelos.url_busqueda_kiwi,
+            url_busqueda_google: localResult.vuelos.url_busqueda_google,
+          },
+          hoteles: {
+            ...aiResult.hoteles,
+            url_busqueda: localResult.hoteles.url_busqueda,
+            url_busqueda_airbnb: localResult.hoteles.url_busqueda_airbnb,
+            url_busqueda_expedia: localResult.hoteles.url_busqueda_expedia,
+            url_busqueda_hotelscom: localResult.hoteles.url_busqueda_hotelscom,
+          },
+          _source: 'claude',
+        };
       }
     } catch (e) {
       // Sin créditos / error → usar el local (no lanzar, no colgar)
@@ -232,5 +260,11 @@ export async function generateItinerary(tripData, onProgress) {
     }
   }
 
-  return localResult;
+  try {
+    result = await enrichWithRealFlightPrice(result);
+  } catch {
+    // best-effort — si falla, nos quedamos con la estimación por fórmula
+  }
+
+  return result;
 }

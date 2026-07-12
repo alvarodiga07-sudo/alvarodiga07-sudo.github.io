@@ -7,6 +7,7 @@ import {
   getCityIata, getOriginIata,
 } from './destinationData';
 import { COUNTRY_FACTS as ALL_COUNTRY_FACTS, REGION_DEFAULTS } from './countryFacts';
+import { fetchRealFlightPrice } from './flightPrices';
 
 // Helper: obtiene datos del país (específicos sobrescriben región)
 function getCountryFacts(countryCode, region) {
@@ -654,9 +655,33 @@ export function generateLocalItinerary(trip) {
   const bookingUrl = `https://www.booking.com/searchresults.es.html?ss=${encodeURIComponent(cities[0])}` +
     (start_date ? `&checkin=${start_date}` : '') + (end_date ? `&checkout=${end_date}` : '') +
     `&group_adults=${travelers}&no_rooms=${Math.max(1, Math.ceil(travelers/2))}&order=bayesian_review_score`;
+  // Kiwi.com: formato de deep-link confirmado (from/to/departure/return). No expone
+  // parámetro de pasajeros ni de equipaje en el enlace — eso se elige dentro de su web.
+  const kiwiUrl = (oIata && dIata)
+    ? `https://www.kiwi.com/deep?from=${oIata.toUpperCase()}&to=${dIata.toUpperCase()}` +
+      (start_date ? `&departure=${start_date}` : '') + (end_date ? `&return=${end_date}` : '')
+    : `https://www.kiwi.com/en/search/results/-/${encodeURIComponent(cities[0])}`;
+  // Google Flights: usa su caja de búsqueda en lenguaje natural vía ?q=
+  const googleFlightsUrl = `https://www.google.com/travel/flights?q=${encodeURIComponent(
+    `Vuelos a ${cities[0]} desde ${originName}` +
+    (start_date ? ` el ${start_date}` : '') + (end_date ? ` hasta el ${end_date}` : '')
+  )}`;
+  // Airbnb: checkin/checkout/adults sí están soportados en su URL de búsqueda.
+  const airbnbUrl = `https://www.airbnb.es/s/${encodeURIComponent(cities[0])}/homes?` +
+    (start_date ? `checkin=${start_date}&` : '') + (end_date ? `checkout=${end_date}&` : '') +
+    `adults=${travelers}`;
+  // Expedia y Hotels.com (mismo grupo, mismo formato) — verificado con ciudad en texto libre.
+  const expediaUrl = `https://www.expedia.com/Hotel-Search?destination=${encodeURIComponent(cities[0])}` +
+    (start_date ? `&startDate=${start_date}` : '') + (end_date ? `&endDate=${end_date}` : '') +
+    `&adults=${travelers}`;
+  const hotelscomUrl = `https://www.hotels.com/Hotel-Search?destination=${encodeURIComponent(cities[0])}` +
+    (start_date ? `&startDate=${start_date}` : '') + (end_date ? `&endDate=${end_date}` : '') +
+    `&adults=${travelers}`;
 
   return {
     _source: 'local',
+    // Guardados para poder recalcular precios con datos reales después (ver enrichWithRealFlightPrice)
+    _oIata: oIata, _dIata: dIata, _travelers: travelers, _days: days, _perPersonDayCost: perPersonDay,
     resumen: `Un viaje ${tripTypeLabel} de ${days} días por ${cityList}. ${hasCurated ? 'Itinerario optimizado con los imprescindibles' : 'Itinerario diseñado'} para aprovechar al máximo tu tiempo, equilibrando lo esencial con momentos para descubrir a tu ritmo.`,
     // #10: total por persona Y total del grupo bien claros
     precio_total_persona: `${Math.round(perPersonTotal * 0.9)}€ - ${Math.round(perPersonTotal * 1.15)}€ por persona`,
@@ -685,6 +710,8 @@ export function generateLocalItinerary(trip) {
         : `Compara llegar a ${cities[0]} con aeropuertos cercanos: a veces volar a otra ciudad y un tren sale más a cuenta.`,
       aerolineas_recomendadas: ['Filtra por "directo" en Skyscanner', 'Compara precio final CON el equipaje que necesitas, no solo la tarifa base'],
       url_busqueda: skyUrl,
+      url_busqueda_kiwi: kiwiUrl,
+      url_busqueda_google: googleFlightsUrl,
     },
     hoteles: {
       zona_recomendada: HOTEL_ZONES[cities[0]] || `zona céntrica y bien comunicada de ${cities[0]}`,
@@ -692,6 +719,9 @@ export function generateLocalItinerary(trip) {
       precio_noche: `${Math.round(daily.hotel*0.8)}€ - ${Math.round(daily.hotel*1.3)}€/noche`,
       hoteles_sugeridos: [`Prioriza la ${HOTEL_ZONES[cities[0]] || 'zona céntrica'} para ir caminando a todo`, 'Filtra: nota >8.5, "cancelación gratuita" y desayuno incluido'],
       url_busqueda: bookingUrl,
+      url_busqueda_airbnb: airbnbUrl,
+      url_busqueda_expedia: expediaUrl,
+      url_busqueda_hotelscom: hotelscomUrl,
     },
     dias,
     info_practica: {
@@ -709,6 +739,38 @@ export function generateLocalItinerary(trip) {
       agua: facts.water,
       conduccion: facts.drive,
       apps_utiles: ['Google Maps (mapa offline)', 'Google Translate (idioma offline)', 'XE Currency (cambio real)', 'Booking / Airbnb', hasAllergies ? 'AllergyTranslation (tarjetas de alergia)' : 'GetYourGuide (entradas y tours)'],
+    },
+  };
+}
+
+// Intenta sustituir la estimación por fórmula por un precio real de mercado
+// (Aviasales Data API, vía proxy). Best-effort: si no hay dato real disponible
+// para esa ruta, deja el itinerario tal cual — nunca lo rompe ni lo bloquea.
+export async function enrichWithRealFlightPrice(itinerary) {
+  const { _oIata, _dIata, _travelers, _days, _perPersonDayCost } = itinerary || {};
+  if (!_oIata || !_dIata) return itinerary;
+
+  const real = await fetchRealFlightPrice(_oIata, _dIata, 'eur');
+  if (!real) return itinerary;
+
+  const travelers = _travelers || 1;
+  const days = _days || 1;
+  const perPersonDayCost = _perPersonDayCost || 0;
+  const perPersonTotal = perPersonDayCost * days + real.price;
+  const groupTotal = perPersonTotal * travelers;
+
+  return {
+    ...itinerary,
+    precio_total_persona: `${Math.round(perPersonTotal * 0.95)}€ - ${Math.round(perPersonTotal * 1.1)}€ por persona (vuelo con precio real de mercado)`,
+    precio_total_grupo: travelers > 1 ? `${Math.round(groupTotal * 0.95)}€ - ${Math.round(groupTotal * 1.1)}€ en total (${travelers} personas)` : null,
+    presupuesto_estimado: `${Math.round(perPersonTotal * travelers * 0.95)}€ - ${Math.round(perPersonTotal * travelers * 1.1)}€ ${travelers>1?`(${travelers} personas)`:'(1 persona)'} · vuelos + ${days} noches + comidas y actividades`,
+    desglose_presupuesto: {
+      ...itinerary.desglose_presupuesto,
+      vuelos: `${Math.round(real.price)}€/persona (precio real encontrado, basado en ${real.sampleSize} búsquedas recientes)`,
+    },
+    vuelos: {
+      ...itinerary.vuelos,
+      precio_aproximado: `${Math.round(real.price)}€ ida y vuelta por persona desde ${_oIata} — precio real de mercado, no estimado`,
     },
   };
 }

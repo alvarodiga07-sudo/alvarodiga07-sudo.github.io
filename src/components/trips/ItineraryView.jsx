@@ -241,7 +241,15 @@ export default function ItineraryView({ itinerary }) {
               <p className="text-xs font-semibold text-center">Buscar en Skyscanner</p>
               <ExternalLink className="w-3 h-3 text-muted-foreground" />
             </a>
-            <a href={`https://www.google.com/flights`} target="_blank" rel="noopener noreferrer"
+            {itinerary.vuelos.url_busqueda_kiwi && (
+              <a href={itinerary.vuelos.url_busqueda_kiwi} target="_blank" rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
+                <span className="text-2xl">🥝</span>
+                <p className="text-xs font-semibold text-center">Buscar en Kiwi.com</p>
+                <ExternalLink className="w-3 h-3 text-muted-foreground" />
+              </a>
+            )}
+            <a href={itinerary.vuelos.url_busqueda_google || 'https://www.google.com/travel/flights'} target="_blank" rel="noopener noreferrer"
               className="flex flex-col items-center gap-2 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
               <span className="text-2xl">✈️</span>
               <p className="text-xs font-semibold text-center">Google Flights</p>
@@ -277,12 +285,28 @@ export default function ItineraryView({ itinerary }) {
               <p className="text-xs font-semibold text-center">Buscar en Booking</p>
               <ExternalLink className="w-3 h-3 text-muted-foreground" />
             </a>
-            <a href="https://www.airbnb.es" target="_blank" rel="noopener noreferrer"
+            <a href={itinerary.hoteles.url_busqueda_airbnb || 'https://www.airbnb.es'} target="_blank" rel="noopener noreferrer"
               className="flex flex-col items-center gap-2 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
               <span className="text-2xl">🏠</span>
               <p className="text-xs font-semibold text-center">Buscar en Airbnb</p>
               <ExternalLink className="w-3 h-3 text-muted-foreground" />
             </a>
+            {itinerary.hoteles.url_busqueda_expedia && (
+              <a href={itinerary.hoteles.url_busqueda_expedia} target="_blank" rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
+                <span className="text-2xl">🧳</span>
+                <p className="text-xs font-semibold text-center">Buscar en Expedia</p>
+                <ExternalLink className="w-3 h-3 text-muted-foreground" />
+              </a>
+            )}
+            {itinerary.hoteles.url_busqueda_hotelscom && (
+              <a href={itinerary.hoteles.url_busqueda_hotelscom} target="_blank" rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 bg-card rounded-2xl border border-border p-4 hover:border-primary/50 transition-all">
+                <span className="text-2xl">🛎️</span>
+                <p className="text-xs font-semibold text-center">Buscar en Hotels.com</p>
+                <ExternalLink className="w-3 h-3 text-muted-foreground" />
+              </a>
+            )}
           </div>
         </div>
       )}

@@ -147,12 +147,26 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
                 ))}
               </div>
             )}
-            {itinerary.vuelos.url_busqueda && (
-              <a href={itinerary.vuelos.url_busqueda} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary font-semibold mt-2 hover:underline">
-                <Plane className="w-3 h-3" /> Buscar vuelos en Skyscanner →
-              </a>
-            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+              {itinerary.vuelos.url_busqueda && (
+                <a href={itinerary.vuelos.url_busqueda} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Plane className="w-3 h-3" /> Skyscanner →
+                </a>
+              )}
+              {itinerary.vuelos.url_busqueda_kiwi && (
+                <a href={itinerary.vuelos.url_busqueda_kiwi} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Plane className="w-3 h-3" /> Kiwi.com →
+                </a>
+              )}
+              {itinerary.vuelos.url_busqueda_google && (
+                <a href={itinerary.vuelos.url_busqueda_google} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Plane className="w-3 h-3" /> Google Flights →
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -182,12 +196,32 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
                 ))}
               </div>
             )}
-            {itinerary.hoteles.url_busqueda && (
-              <a href={itinerary.hoteles.url_busqueda} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary font-semibold mt-2 hover:underline">
-                <Hotel className="w-3 h-3" /> Buscar en Booking.com →
-              </a>
-            )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+              {itinerary.hoteles.url_busqueda && (
+                <a href={itinerary.hoteles.url_busqueda} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Hotel className="w-3 h-3" /> Booking.com →
+                </a>
+              )}
+              {itinerary.hoteles.url_busqueda_airbnb && (
+                <a href={itinerary.hoteles.url_busqueda_airbnb} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Hotel className="w-3 h-3" /> Airbnb →
+                </a>
+              )}
+              {itinerary.hoteles.url_busqueda_expedia && (
+                <a href={itinerary.hoteles.url_busqueda_expedia} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Hotel className="w-3 h-3" /> Expedia →
+                </a>
+              )}
+              {itinerary.hoteles.url_busqueda_hotelscom && (
+                <a href={itinerary.hoteles.url_busqueda_hotelscom} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary font-semibold hover:underline">
+                  <Hotel className="w-3 h-3" /> Hotels.com →
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}
