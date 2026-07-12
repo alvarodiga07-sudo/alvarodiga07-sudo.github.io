@@ -1,5 +1,7 @@
 // AI engine — WebLLM (browser, gratis) > Ollama (local) > Claude API (de pago)
-import * as webllm from '@mlc-ai/web-llm';
+// WebLLM se carga BAJO DEMANDA (dynamic import): pesa varios MB y en el flujo
+// normal nunca se usa (el itinerario sale del generador local + Claude API).
+// Importarlo estáticamente lo metía entero en el bundle inicial de la app.
 
 const API_KEY_STORAGE = 'waddle_api_key';
 const OLLAMA_URL = 'http://localhost:11434';
@@ -27,7 +29,7 @@ export async function checkOllama() {
 
 export async function detectAI() {
   // 1. WebLLM siempre disponible (gratis, en el navegador)
-  if (typeof window !== 'undefined' && webllm) {
+  if (typeof window !== 'undefined') {
     return { provider: 'webllm' };
   }
   // 2. Ollama local
@@ -56,6 +58,7 @@ export async function initWebLLM(onProgress) {
 
   _engineLoading = true;
   try {
+    const webllm = await import('@mlc-ai/web-llm'); // carga diferida: solo si de verdad se usa
     const engine = await webllm.CreateMLCEngine(WEBLLM_MODEL, {
       initProgressCallback: (progress) => {
         onProgress?.({
