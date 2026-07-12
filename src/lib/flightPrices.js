@@ -7,7 +7,8 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseConfig';
 
 const TIMEOUT_MS = 3000;
 
-// data: [{ origin, destination, price, currency, depart_date, return_date, ... }]
+// La Data API devuelve data: [{ origin, destination, value (=precio), depart_date,
+// return_date, gate, number_of_changes, ... }]. OJO: el precio está en `value`.
 export async function fetchRealFlightPrice(originIata, destIata, currency = 'eur') {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !originIata || !destIata) return null;
 
@@ -15,7 +16,8 @@ export async function fetchRealFlightPrice(originIata, destIata, currency = 'eur
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const url = `${SUPABASE_URL}/functions/v1/flight-prices?origin=${originIata}&destination=${destIata}&currency=${currency}`;
+    // Slug de la Edge Function en Supabase (el nombre auto-generado al desplegarla).
+    const url = `${SUPABASE_URL}/functions/v1/clever-api?origin=${originIata}&destination=${destIata}&currency=${currency}`;
     // La anon key es pública y va en la cabecera porque las Edge Functions de
     // Supabase verifican el JWT por defecto (si no, responderían 401).
     const res = await fetch(url, {
@@ -29,12 +31,14 @@ export async function fetchRealFlightPrice(originIata, destIata, currency = 'eur
     const json = await res.json();
     if (!json.success || !Array.isArray(json.data) || json.data.length === 0) return null;
 
-    // Nos quedamos con el más barato encontrado
-    const cheapest = json.data.reduce((min, d) => (d.price < min.price ? d : min), json.data[0]);
+    // Nos quedamos con el más barato encontrado (el precio está en `value`)
+    const priced = json.data.filter(d => typeof d.value === 'number' && d.value > 0);
+    if (priced.length === 0) return null;
+    const cheapest = priced.reduce((min, d) => (d.value < min.value ? d : min), priced[0]);
     return {
-      price: cheapest.price,
+      price: cheapest.value,
       currency: json.currency || currency,
-      sampleSize: json.data.length,
+      sampleSize: priced.length,
     };
   } catch {
     return null; // timeout, red caída, función no desplegada, etc. — nunca rompe el flujo
