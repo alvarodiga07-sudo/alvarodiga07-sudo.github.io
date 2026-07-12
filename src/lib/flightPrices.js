@@ -3,20 +3,28 @@
 // Supabase configurado, si la función no está desplegada, o si no hay datos
 // para esa ruta, devuelve null y el generador local sigue con su estimación
 // por fórmula. Nunca bloquea ni lanza: el itinerario siempre se genera.
-import { SUPABASE_URL } from './supabaseConfig';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseConfig';
 
 const TIMEOUT_MS = 3000;
 
 // data: [{ origin, destination, price, currency, depart_date, return_date, ... }]
 export async function fetchRealFlightPrice(originIata, destIata, currency = 'eur') {
-  if (!SUPABASE_URL || !originIata || !destIata) return null;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !originIata || !destIata) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const url = `${SUPABASE_URL}/functions/v1/flight-prices?origin=${originIata}&destination=${destIata}&currency=${currency}`;
-    const res = await fetch(url, { signal: controller.signal });
+    // La anon key es pública y va en la cabecera porque las Edge Functions de
+    // Supabase verifican el JWT por defecto (si no, responderían 401).
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+    });
     if (!res.ok) return null;
     const json = await res.json();
     if (!json.success || !Array.isArray(json.data) || json.data.length === 0) return null;
