@@ -15,10 +15,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { COUNTRIES } from '@/lib/countries';
 import { toast } from 'sonner';
+import { useT } from '@/lib/i18n';
 
 export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t, lang, setLang } = useT();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -182,16 +184,15 @@ export default function Settings() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Idioma</Label>
-              {/* Solo se ofrecen idiomas que la app tiene de verdad. Inglés y más,
-                  cuando haya sistema de traducciones (i18n) — no antes. */}
-              <Select value="es" disabled>
+              <Label className="text-xs">{t('Idioma')}</Label>
+              {/* Cambia el idioma AL INSTANTE (contexto i18n) y se guarda en el perfil */}
+              <Select value={lang} onValueChange={(v) => { setLang(v); update('language', v); }}>
                 <SelectTrigger className="mt-1 h-10 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="es">🇪🇸 Español</SelectItem>
+                  <SelectItem value="en">🇬🇧 English</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground mt-1">Más idiomas, próximamente.</p>
             </div>
           </div>
         </Section>

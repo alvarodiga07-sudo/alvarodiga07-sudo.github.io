@@ -35,16 +35,22 @@ export function buildSearchLinks(trip) {
 
   // ── Vuelos ──
   const toSky = (d) => (d ? d.slice(2).replaceAll('-', '') : ''); // 2026-09-10 → 260910
+  // OJO: skyscanner.es traduce las rutas — /transport/flights/ da "página no
+  // encontrada"; la ruta válida en el dominio español es /transporte/vuelos/.
   const skyscanner = (oIata && dIata && start && end)
-    ? `https://www.skyscanner.es/transport/flights/${oIata.toLowerCase()}/${dIata.toLowerCase()}/${toSky(start)}/${toSky(end)}/?adults=${travelers}&currency=EUR`
+    ? `https://www.skyscanner.es/transporte/vuelos/${oIata.toLowerCase()}/${dIata.toLowerCase()}/${toSky(start)}/${toSky(end)}/?adults=${travelers}&currency=EUR`
     : `https://www.skyscanner.es/transporte/vuelos-a/${(dIata || city || destName).toLowerCase()}/`;
+  // Kiwi sí acepta pasajeros por URL con `adults` (verificado: muestra "2 Pasajeros").
   const kiwi = (oIata && dIata)
     ? `https://www.kiwi.com/deep?from=${oIata.toUpperCase()}&to=${dIata.toUpperCase()}` +
-      (start ? `&departure=${start}` : '') + (end ? `&return=${end}` : '')
+      (start ? `&departure=${start}` : '') + (end ? `&return=${end}` : '') + `&adults=${travelers}`
     : `https://www.kiwi.com/es/`;
-  const google = `https://www.google.com/travel/flights?q=${encodeURIComponent(
-    `Vuelos a ${city || destName} desde ${originName}` + (start ? ` el ${start}` : '') + (end ? ` hasta el ${end}` : '')
-  )}`;
+  // Google Flights parsea mejor la query en inglés con códigos IATA que en lenguaje natural español.
+  const google = (oIata && dIata)
+    ? `https://www.google.com/travel/flights?q=${encodeURIComponent(
+        `flights from ${oIata} to ${dIata}` + (start ? ` on ${start}` : '') + (end ? ` through ${end}` : '')
+      )}`
+    : `https://www.google.com/travel/flights?q=${encodeURIComponent(`flights to ${city || destName}`)}`;
 
   // ── Hoteles ──
   // Booking: nflt=price%3DEUR-min-max-1 filtra por precio/noche (verificado en vivo).
@@ -67,17 +73,19 @@ export function buildSearchLinks(trip) {
     (start ? `&startDate=${start}` : '') + (end ? `&endDate=${end}` : '') + `&adults=${travelers}`;
 
   // ── Extras ──
+  // Cada extra pasa por wrapAffiliate: en cuanto su programa tenga ids en
+  // TP_PROGRAMS (lib/affiliate.js), el clic genera comisión automáticamente.
   const airaloSlug = destName.toLowerCase().trim().replace(/\s+/g, '-');
   const extras = {
-    actividades: { url: `https://www.getyourguide.com/s/?q=${encodeURIComponent(city || destName)}`, marca: 'GetYourGuide', prellenado: true,
+    actividades: { url: wrapAffiliate(`https://www.getyourguide.com/s/?q=${encodeURIComponent(city || destName)}`, 'getyourguide'), marca: 'GetYourGuide', prellenado: true,
       desc: `Tours, entradas y experiencias en ${city || destName}, con cancelación gratuita.` },
-    esim: { url: airaloSlug ? `https://www.airalo.com/${airaloSlug}-esim` : 'https://www.airalo.com/', marca: 'Airalo', prellenado: !!airaloSlug,
+    esim: { url: wrapAffiliate(airaloSlug ? `https://www.airalo.com/${airaloSlug}-esim` : 'https://www.airalo.com/', 'airalo'), marca: 'Airalo', prellenado: !!airaloSlug,
       desc: `Datos móviles desde que aterrizas, sin cambiar de tarjeta${destName ? ` (${destName})` : ''}.` },
-    coches: { url: 'https://www.discovercars.com/', marca: 'DiscoverCars', prellenado: false,
+    coches: { url: wrapAffiliate('https://www.discovercars.com/', 'discovercars'), marca: 'DiscoverCars', prellenado: false,
       desc: 'Compara alquiler de coche con cancelación gratis.' },
-    traslados: { url: 'https://www.welcomepickups.com/', marca: 'Welcome Pickups', prellenado: false,
+    traslados: { url: wrapAffiliate('https://www.welcomepickups.com/', 'welcomepickups'), marca: 'Welcome Pickups', prellenado: false,
       desc: 'Traslado del aeropuerto al hotel con conductor que te espera.' },
-    transporte: { url: 'https://www.omio.com/', marca: 'Omio', prellenado: false,
+    transporte: { url: wrapAffiliate('https://www.omio.com/', 'omio'), marca: 'Omio', prellenado: false,
       desc: 'Trenes, buses y ferris entre ciudades, comparados en un sitio.' },
     seguro: { url: 'https://www.heymondo.com/', marca: 'Heymondo', prellenado: false,
       desc: 'Seguro de viaje con cobertura médica y cancelación.' },

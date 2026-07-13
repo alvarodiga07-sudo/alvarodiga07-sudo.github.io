@@ -10,6 +10,7 @@ import TripCard from '@/components/trips/TripCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SuggestedTripModal from '@/components/trips/SuggestedTripModal';
 import { toast } from 'sonner';
+import { useT } from '@/lib/i18n';
 
 // Destinos variados: 3 categorías - cheap (verde) / normal (amarillo) / premium (rojo)
 const SUGGESTED_DESTINATIONS = [
@@ -35,6 +36,7 @@ const SUGGESTED_DESTINATIONS = [
 ];
 
 export default function Trips() {
+  const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filter, setFilter] = React.useState('planning');
@@ -123,7 +125,7 @@ export default function Trips() {
       {/* Suggested destinations — 3 tiers de color */}
       <div className="px-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Destinos populares</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('Destinos populares')}</h3>
           <span className="text-[10px] text-muted-foreground">⚡ Baratos · 🌟 Premium</span>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
@@ -159,7 +161,7 @@ export default function Trips() {
       {/* My trips */}
       <div className="px-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Mis viajes</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('Mis viajes')}</h3>
           <Button
             size="sm"
             variant="ghost"
@@ -174,7 +176,7 @@ export default function Trips() {
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar viajes..."
+            placeholder={t('Buscar viajes...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-10 rounded-xl"
@@ -183,8 +185,8 @@ export default function Trips() {
 
         <Tabs value={filter === 'all' || filter === 'completed' ? 'planning' : filter} onValueChange={setFilter} className="mb-4">
           <TabsList className="bg-secondary/50 w-full">
-            <TabsTrigger value="planning" className="flex-1 text-xs">Planeando</TabsTrigger>
-            <TabsTrigger value="active" className="flex-1 text-xs">Activos</TabsTrigger>
+            <TabsTrigger value="planning" className="flex-1 text-xs">{t('Planeando')}</TabsTrigger>
+            <TabsTrigger value="active" className="flex-1 text-xs">{t('Activos')}</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -203,8 +205,8 @@ export default function Trips() {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Plane className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="font-semibold text-foreground mb-1">No hay viajes todavía</h3>
-            <p className="text-sm text-muted-foreground mb-4">¡Empieza a planificar tu próxima aventura!</p>
+            <h3 className="font-semibold text-foreground mb-1">{t('No hay viajes todavía')}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{t('¡Empieza a planificar tu próxima aventura!')}</p>
             <Button
               onClick={() => navigate('/trip-wizard?mode=custom')}
               className="bg-primary hover:bg-primary/90 rounded-xl"

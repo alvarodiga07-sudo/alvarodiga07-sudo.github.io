@@ -350,9 +350,9 @@ export default function TripWizard() {
           country_code: form.destination_country, country_name: countryData.name,
           trip_id: trip.id, visit_date: form.start_date || new Date().toISOString().split('T')[0],
         });
-        const visited = user?.countries_visited || [];
-        if (!visited.includes(form.destination_country))
-          await base44.auth.updateMe({ countries_visited: [...visited, form.destination_country] });
+        // NOTA: aquí NO se añade a countries_visited — el viaje nace en estado
+        // "planning" y el globo/perfil solo deben iluminar países COMPLETADOS.
+        // countries_visited se actualiza al pulsar "Completar" (TripDetail).
       }
 
       await queryClient.invalidateQueries({ queryKey: ['trips'] });

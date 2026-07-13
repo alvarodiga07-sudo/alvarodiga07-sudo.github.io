@@ -244,13 +244,23 @@ function isVisible(lon, lat, rotX, rotY) {
   return cosAngle > -0.1;
 }
 
-export default function InteractiveGlobe({ visitedCountries = [], size = 300, trips = [], onTripClick }) {
+export default function InteractiveGlobe({ visitedCountries = [], size = 300, trips = [], onTripClick, onCountryClick }) {
   const visitedSet = useMemo(() => new Set(visitedCountries), [visitedCountries]);
 
   const countryToTrip = useMemo(() => {
     const map = {};
     [...trips].sort((a,b) => new Date(b.created_date||0)-new Date(a.created_date||0)).forEach(t => {
       if (t.destination_country && !map[t.destination_country]) map[t.destination_country] = t.id;
+    });
+    return map;
+  }, [trips]);
+
+  // Todos los viajes de cada país (para el selector cuando has ido varias veces)
+  const countryToTrips = useMemo(() => {
+    const map = {};
+    trips.forEach(t => {
+      if (!t.destination_country) return;
+      (map[t.destination_country] ||= []).push(t);
     });
     return map;
   }, [trips]);
@@ -388,10 +398,13 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
 
   const handleCountryClick = useCallback((alpha2) => {
     if (!hasMoved.current && visitedSet.has(alpha2)) {
+      const list = countryToTrips[alpha2] || [];
+      // Varias visitas al país → que el padre abra el selector de viaje
+      if (list.length > 1 && onCountryClick) { onCountryClick(alpha2, list); return; }
       const tripId = countryToTrip[alpha2];
       if (tripId && onTripClick) onTripClick(tripId);
     }
-  }, [visitedSet, countryToTrip, onTripClick]);
+  }, [visitedSet, countryToTrip, countryToTrips, onTripClick, onCountryClick]);
 
   const baseScale = (size / 2) * 0.92;
   const scale = baseScale * zoom;
@@ -404,7 +417,9 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
   //   zoom >= 3.5: todos (sz>=1)
   // Esto evita solapes en zooms iniciales y deja ver todo cuando hay sitio.
   const minSize = zoom >= 3.5 ? 1 : zoom >= 2.5 ? 2 : zoom >= 1.9 ? 3 : 99;
-  const showCapitals = zoom >= 2.8;
+  // Capitales solo a partir de zoom 4.5: antes salían casi a la vez que los nombres
+  // y quedaba todo pegado/agobiante. Primero países (con aire), luego capitales.
+  const showCapitals = zoom >= 4.5;
   // Tamaño de fuente proporcional al zoom, con tope para que no se vea enorme
   const labelSize = Math.max(6, Math.min(11, 3.2 * zoom));
 
@@ -452,7 +467,7 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
                   <Geography key={geo.rsmKey} geography={geo}
                     onClick={() => alpha2 && handleCountryClick(alpha2)}
                     fill={visited ? '#eab308' : '#dfe5da'}
-                    stroke="#ffffff" strokeWidth={0.4}
+                    stroke="#7d8794" strokeWidth={zoom >= 3 ? 0.55 : 0.45}
                     style={{
                       default: { outline: 'none', cursor: visited ? 'pointer' : 'default' },
                       hover: { outline: 'none', fill: visited ? '#f0c030' : '#ecf0e8', cursor: visited ? 'pointer' : 'default' },
@@ -482,8 +497,10 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
               const p = projection([lon, lat]);
               if (!p) continue;
               const [x, y] = p;
-              const w = name.length * labelSize * 0.55;
-              const h = labelSize * (showCapitals ? 2.2 : 1.1);
+              // Caja de colisión con MARGEN: antes los labels se tocaban borde con
+              // borde y la sensación era de amontonamiento aunque no solaparan.
+              const w = name.length * labelSize * 0.62 + 8;
+              const h = labelSize * (showCapitals ? 3.0 : 1.6) + 4;
               candidates.push({ lon, lat, name, capital, sz, x, y, w, h });
             }
 
@@ -497,13 +514,19 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
 
             const placed = [];
             const shown = [];
-            // Posiciones alternativas para probar si el label solapa (offsets en y)
-            const offsets = [0, -labelSize * 1.4, labelSize * 1.4, -labelSize * 2.5, labelSize * 2.5];
+            // Posiciones alternativas si el label solapa: vertical Y TAMBIÉN
+            // horizontal (aprovecha huecos a los lados, p.ej. sobre el mar).
+            const offsets = [
+              [0, 0],
+              [0, -labelSize * 1.8], [0, labelSize * 1.8],
+              [-labelSize * 3.5, 0], [labelSize * 3.5, 0],
+              [0, -labelSize * 3.2], [0, labelSize * 3.2],
+              [-labelSize * 3.2, -labelSize * 1.8], [labelSize * 3.2, labelSize * 1.8],
+            ];
             for (const c of candidates) {
-              let placedOk = false;
-              for (const offY of offsets) {
-                const tryY = c.y + offY;
-                const cBox = { x1: c.x - c.w / 2, x2: c.x + c.w / 2, y1: tryY - c.h / 2, y2: tryY + c.h / 2 };
+              for (const [offX, offY] of offsets) {
+                const tryX = c.x + offX, tryY = c.y + offY;
+                const cBox = { x1: tryX - c.w / 2, x2: tryX + c.w / 2, y1: tryY - c.h / 2, y2: tryY + c.h / 2 };
                 let overlaps = false;
                 for (const p of placed) {
                   if (cBox.x1 < p.x2 && cBox.x2 > p.x1 && cBox.y1 < p.y2 && cBox.y2 > p.y1) {
@@ -512,44 +535,48 @@ export default function InteractiveGlobe({ visitedCountries = [], size = 300, tr
                 }
                 if (!overlaps) {
                   placed.push(cBox);
-                  shown.push({ ...c, labelOffsetY: offY });
-                  placedOk = true;
+                  shown.push({ ...c, labelOffsetX: offX, labelOffsetY: offY });
                   break;
                 }
               }
             }
 
-            return shown.map(c => (
-              <Marker key={`${c.lon},${c.lat}`} coordinates={[c.lon, c.lat]}>
-                {/* Label del país (con offset si hubo conflicto) */}
-                <text textAnchor="middle" y={(c.labelOffsetY || 0) - 3}
-                  style={{
-                    fontSize: labelSize, fontWeight: 700, fill: '#0f172a',
-                    fontFamily: 'system-ui, sans-serif', letterSpacing: '0.03em',
-                    pointerEvents: 'none', paintOrder: 'stroke',
-                    stroke: 'rgba(255,255,255,0.95)', strokeWidth: 3, strokeLinejoin: 'round',
-                  }}
-                >{c.name}</text>
-                {/* Líneas si el label está movido del país (conector visual) */}
-                {Math.abs(c.labelOffsetY || 0) > 1 && (
-                  <line x1={0} y1={0} x2={0} y2={(c.labelOffsetY || 0) + (c.labelOffsetY > 0 ? -labelSize : labelSize * 0.3)}
-                    stroke="#0f172a" strokeWidth={0.4} opacity={0.4} strokeDasharray="1.5,1.5" />
-                )}
-                {showCapitals && (
-                  <>
-                    <circle r={1.5} fill="#dc2626" stroke="#fff" strokeWidth={0.7} />
-                    <text textAnchor="middle" y={(c.labelOffsetY || 0) + labelSize + 5}
-                      style={{
-                        fontSize: labelSize * 0.72, fontWeight: 400, fill: '#334155',
-                        fontFamily: 'system-ui, sans-serif', pointerEvents: 'none',
-                        paintOrder: 'stroke', stroke: 'rgba(255,255,255,0.9)',
-                        strokeWidth: 2.5, strokeLinejoin: 'round',
-                      }}
-                    >★ {c.capital}</text>
-                  </>
-                )}
-              </Marker>
-            ));
+            return shown.map(c => {
+              const ox = c.labelOffsetX || 0, oy = c.labelOffsetY || 0;
+              const moved = Math.abs(ox) > 1 || Math.abs(oy) > 1;
+              return (
+                <Marker key={`${c.lon},${c.lat}`} coordinates={[c.lon, c.lat]}>
+                  {/* Label del país (con offset X/Y si hubo conflicto) */}
+                  <text textAnchor="middle" x={ox} y={oy - 3}
+                    style={{
+                      fontSize: labelSize, fontWeight: 700, fill: '#0f172a',
+                      fontFamily: 'system-ui, sans-serif', letterSpacing: '0.03em',
+                      pointerEvents: 'none', paintOrder: 'stroke',
+                      stroke: 'rgba(255,255,255,0.95)', strokeWidth: 3, strokeLinejoin: 'round',
+                    }}
+                  >{c.name}</text>
+                  {/* Conector punteado hasta el país si el label está desplazado */}
+                  {moved && (
+                    <line x1={0} y1={0} x2={ox} y2={oy - labelSize * 0.6}
+                      stroke="#0f172a" strokeWidth={0.4} opacity={0.4} strokeDasharray="1.5,1.5" />
+                  )}
+                  {showCapitals && (
+                    <>
+                      <circle r={1.5} fill="#dc2626" stroke="#fff" strokeWidth={0.7} />
+                      {/* Capital claramente SEPARADA del nombre del país (1.7× de hueco) */}
+                      <text textAnchor="middle" x={ox} y={oy + labelSize * 1.7 + 4}
+                        style={{
+                          fontSize: labelSize * 0.72, fontWeight: 400, fill: '#334155',
+                          fontFamily: 'system-ui, sans-serif', pointerEvents: 'none',
+                          paintOrder: 'stroke', stroke: 'rgba(255,255,255,0.9)',
+                          strokeWidth: 2.5, strokeLinejoin: 'round',
+                        }}
+                      >★ {c.capital}</text>
+                    </>
+                  )}
+                </Marker>
+              );
+            });
           })()}
 
         </ComposableMap>

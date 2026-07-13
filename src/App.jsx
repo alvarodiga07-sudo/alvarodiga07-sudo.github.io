@@ -25,6 +25,7 @@ import SocialFeed from './pages/SocialFeed';
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
+import { LanguageProvider } from './lib/i18n';
 
 const LOGO_URL = "/brand/logo.png";
 
@@ -99,10 +100,12 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
+        <LanguageProvider>
+          <Router>
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </LanguageProvider>
       </QueryClientProvider>
         <SonnerToaster position="bottom-center" richColors />
     </AuthProvider>

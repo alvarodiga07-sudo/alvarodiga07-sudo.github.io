@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Globe, MapPin, Percent } from 'lucide-react';
 import { TOTAL_COUNTRIES } from '@/lib/countries';
+import { useT } from '@/lib/i18n';
 
 export default function StatsBar({ visitedCount = 0 }) {
+  const { t } = useT();
   const percentage = ((visitedCount / TOTAL_COUNTRIES) * 100).toFixed(1);
 
   return (
@@ -14,7 +16,7 @@ export default function StatsBar({ visitedCount = 0 }) {
       className="mx-5 bg-card rounded-2xl border border-border p-4 shadow-sm"
     >
       <div className="flex items-center justify-center mb-3">
-        <h3 className="text-sm font-bold text-foreground tracking-widest uppercase">Progreso Mundial</h3>
+        <h3 className="text-sm font-bold text-foreground tracking-widest uppercase">{t('PROGRESO MUNDIAL')}</h3>
       </div>
 
       {/* Progress bar */}
@@ -33,21 +35,21 @@ export default function StatsBar({ visitedCount = 0 }) {
             <Globe className="w-4 h-4 text-primary" />
             <span className="text-xl font-bold text-foreground">{TOTAL_COUNTRIES}</span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-medium">Países totales</span>
+          <span className="text-[10px] text-muted-foreground font-medium">{t('Países totales')}</span>
         </div>
         <div className="text-center border-x border-border">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <MapPin className="w-4 h-4 text-primary" />
             <span className="text-xl font-bold text-primary">{visitedCount}</span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-medium">Países visitados</span>
+          <span className="text-[10px] text-muted-foreground font-medium">{t('Países visitados')}</span>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <Percent className="w-4 h-4 text-primary" />
             <span className="text-xl font-bold text-foreground">{percentage}</span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-medium">% Explorado</span>
+          <span className="text-[10px] text-muted-foreground font-medium">{t('% Explorado')}</span>
         </div>
       </div>
     </motion.div>

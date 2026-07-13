@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Globe, Plane, BookOpen, User, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useT } from '@/lib/i18n';
 
 const navItems = [
   { path: '/', icon: Globe, label: 'Inicio' },
@@ -13,6 +14,7 @@ const navItems = [
 
 export default function BottomNav() {
   const location = useLocation();
+  const { t } = useT();
 
   // Hide on certain routes
   const hiddenRoutes = ['/onboarding', '/trip-wizard'];
@@ -45,7 +47,7 @@ export default function BottomNav() {
               <span className={`text-[10px] font-medium transition-colors duration-200 ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}>
-                {label}
+                {t(label)}
               </span>
             </Link>
           );

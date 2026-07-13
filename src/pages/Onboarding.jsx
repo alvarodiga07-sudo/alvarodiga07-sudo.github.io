@@ -11,6 +11,7 @@ import { ChevronRight, ChevronLeft, User, Globe, Heart, Check } from 'lucide-rea
 import { COUNTRIES } from '@/lib/countries';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useT } from '@/lib/i18n';
 
 const LOGO_URL = "/brand/logo.png";
 
@@ -33,6 +34,7 @@ const STEPS = ['welcome', 'profile', 'origin', 'interests'];
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { t } = useT();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -160,15 +162,15 @@ export default function Onboarding() {
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
               />
-              <h1 className="text-3xl font-bold text-foreground mb-2">Bienvenido a Waddle</h1>
+              <h1 className="text-3xl font-bold text-foreground mb-2">{t('Bienvenido a Waddle')}</h1>
               <p className="text-muted-foreground mb-8">
-                Tu compañero de viaje inteligente. Planifica, explora, recuerda y comparte.
+                {t('Tu compañero de viaje inteligente. Planifica, explora, recuerda y comparte.')}
               </p>
               <Button
                 onClick={() => setStep(1)}
                 className="w-full h-12 rounded-xl text-base font-semibold bg-primary hover:bg-primary/90"
               >
-                Empezar
+                {t('Empezar')}
                 <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
             </motion.div>
@@ -186,13 +188,13 @@ export default function Onboarding() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <User className="w-6 h-6 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground">Tu perfil</h2>
-                <p className="text-sm text-muted-foreground mt-1">Cuéntanos sobre ti</p>
+                <h2 className="text-2xl font-bold text-foreground">{t('Tu perfil')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">{t('Cuéntanos sobre ti')}</p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">Nombre de usuario</Label>
+                  <Label className="text-sm font-medium">{t('Nombre de usuario')}</Label>
                   <Input
                     placeholder="@miusuario"
                     value={form.username}
@@ -201,7 +203,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Nombre visible</Label>
+                  <Label className="text-sm font-medium">{t('Nombre visible')}</Label>
                   <Input
                     placeholder="Tu nombre"
                     value={form.display_name}
@@ -210,7 +212,7 @@ export default function Onboarding() {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Bio (opcional)</Label>
+                  <Label className="text-sm font-medium">{t('Bio (opcional)')}</Label>
                   <Textarea
                     placeholder="Cuéntanos algo sobre ti..."
                     value={form.bio}
@@ -235,16 +237,16 @@ export default function Onboarding() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Globe className="w-6 h-6 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground">Tu origen</h2>
-                <p className="text-sm text-muted-foreground mt-1">Para personalizar tu experiencia</p>
+                <h2 className="text-2xl font-bold text-foreground">{t('Tu origen')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">{t('Para personalizar tu experiencia')}</p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">País de origen</Label>
+                  <Label className="text-sm font-medium">{t('País de origen')}</Label>
                   <Select value={form.country_of_origin} onValueChange={(v) => updateForm('country_of_origin', v)}>
                     <SelectTrigger className="mt-1.5 h-11 rounded-xl">
-                      <SelectValue placeholder="Selecciona tu país" />
+                      <SelectValue placeholder={t('Selecciona tu país')} />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
                       {COUNTRIES.map(c => (
@@ -271,8 +273,8 @@ export default function Onboarding() {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Heart className="w-6 h-6 text-primary" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground">Tus intereses</h2>
-                <p className="text-sm text-muted-foreground mt-1">¿Qué te gusta cuando viajas?</p>
+                <h2 className="text-2xl font-bold text-foreground">{t('Tus intereses')}</h2>
+                <p className="text-sm text-muted-foreground mt-1">{t('¿Qué te gusta cuando viajas?')}</p>
               </div>
 
               <div className="grid grid-cols-3 gap-2.5">
@@ -319,9 +321,9 @@ export default function Onboarding() {
             {loading ? (
               <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
             ) : step === 3 ? (
-              <>Comenzar aventura <ChevronRight className="w-5 h-5 ml-1" /></>
+              <>{t('Comenzar aventura')} <ChevronRight className="w-5 h-5 ml-1" /></>
             ) : (
-              <>Siguiente <ChevronRight className="w-5 h-5 ml-1" /></>
+              <>{t('Siguiente')} <ChevronRight className="w-5 h-5 ml-1" /></>
             )}
           </Button>
         </div>

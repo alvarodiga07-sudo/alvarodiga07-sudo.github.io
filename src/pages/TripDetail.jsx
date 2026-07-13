@@ -20,12 +20,13 @@ import { toast } from 'sonner';
 import { generateItinerary } from '@/lib/claudeAI';
 import { COUNTRIES } from '@/lib/countries';
 import { buildSearchLinks } from '@/lib/searchLinks';
+import { useT } from '@/lib/i18n';
 
 const STATUS_LABELS = { planning: 'Planeando', active: 'Activo', completed: 'Completado' };
 const STATUS_COLORS = {
-  planning: 'bg-blue-100 text-blue-700',
-  active: 'bg-green-100 text-green-700',
-  completed: 'bg-amber-100 text-amber-700',
+  planning: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  active: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  completed: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
 };
 
 // ─── Itinerario IA completo ────────────────────────────────────────────────
@@ -59,7 +60,138 @@ function CollapsibleSection({ headerBg, icon, title, defaultOpen = false, childr
   );
 }
 
+// ── Mis billetes ── El usuario guarda su vuelo YA COMPRADO (nº de vuelo, horas,
+// localizador). Con las horas reales, ajustar el día 1 y el último del itinerario
+// deja de ser un misterio. Se guarda en trip.flight_info.
+const EMPTY_FLIGHT_INFO = {
+  airline: '', out_flight: '', out_dep: '', out_arr: '',
+  ret_flight: '', ret_dep: '', ret_arr: '', booking_ref: '', notes: '',
+};
+
+function TicketInfo({ trip, tripId, queryClient }) {
+  const { t } = useT();
+  const saved = trip.flight_info || null;
+  const [editing, setEditing] = useState(false);
+  const [f, setF] = useState(saved || EMPTY_FLIGHT_INFO);
+  const up = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    await base44.entities.Trip.update(tripId, { flight_info: f });
+    queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+    setEditing(false);
+    toast.success(t('Billetes guardados en el viaje'));
+  };
+
+  const fmtDT = (v) => {
+    if (!v) return null;
+    try { return format(new Date(v), "dd MMM · HH:mm", { locale: es }); } catch { return v; }
+  };
+
+  if (!saved && !editing) {
+    return (
+      <button onClick={() => { setF(EMPTY_FLIGHT_INFO); setEditing(true); }}
+        className="w-full flex items-center gap-3 bg-card border border-dashed border-primary/40 rounded-2xl p-4 mb-4 hover:border-primary transition-colors text-left">
+        <span className="text-2xl">🎫</span>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-foreground">{t('¿Ya tienes los billetes?')}</p>
+          <p className="text-[11px] text-muted-foreground">{t('Guarda tu vuelo (números, horas) y ajusta el plan del primer y último día.')}</p>
+        </div>
+        <Plus className="w-4 h-4 text-primary flex-shrink-0" />
+      </button>
+    );
+  }
+
+  if (!editing) {
+    return (
+      <div className="bg-card rounded-2xl border border-border overflow-hidden mb-4">
+        <div className="flex items-center justify-between px-4 py-3 bg-secondary border-b border-border">
+          <span className="flex items-center gap-2 text-sm font-bold text-foreground">🎫 {t('Mis billetes')}</span>
+          <button onClick={() => { setF(saved); setEditing(true); }} className="text-xs text-primary font-semibold hover:underline">{t('Editar')}</button>
+        </div>
+        <div className="p-4 space-y-2 text-xs">
+          {saved.airline && <p><span className="font-semibold">Aerolínea:</span> {saved.airline}</p>}
+          {(saved.out_flight || saved.out_dep) && (
+            <p>✈️ <span className="font-semibold">Ida:</span> {saved.out_flight}{saved.out_dep ? ` · sale ${fmtDT(saved.out_dep)}` : ''}{saved.out_arr ? ` · llega ${fmtDT(saved.out_arr)}` : ''}</p>
+          )}
+          {(saved.ret_flight || saved.ret_dep) && (
+            <p>🛬 <span className="font-semibold">Vuelta:</span> {saved.ret_flight}{saved.ret_dep ? ` · sale ${fmtDT(saved.ret_dep)}` : ''}{saved.ret_arr ? ` · llega ${fmtDT(saved.ret_arr)}` : ''}</p>
+          )}
+          {saved.booking_ref && <p><span className="font-semibold">Localizador:</span> <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">{saved.booking_ref}</span></p>}
+          {saved.notes && <p className="text-muted-foreground">{saved.notes}</p>}
+          {saved.out_arr && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+              💡 Llegas el {fmtDT(saved.out_arr)}: planifica el día 1 a partir de esa hora (traslado + check-in ≈ 2h).
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-2xl border border-primary/40 p-4 mb-4 space-y-3">
+      <p className="text-sm font-bold text-foreground">🎫 {t('Datos de tus billetes')}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <label className="text-[10px] text-muted-foreground">{t('Aerolínea')}</label>
+          <input value={f.airline} onChange={e => up('airline', e.target.value)} placeholder="ej. Iberia"
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Nº vuelo ida')}</label>
+          <input value={f.out_flight} onChange={e => up('out_flight', e.target.value)} placeholder="IB6801"
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Nº vuelo vuelta')}</label>
+          <input value={f.ret_flight} onChange={e => up('ret_flight', e.target.value)} placeholder="IB6802"
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Ida: salida')}</label>
+          <input type="datetime-local" value={f.out_dep} onChange={e => up('out_dep', e.target.value)}
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Ida: llegada')}</label>
+          <input type="datetime-local" value={f.out_arr} onChange={e => up('out_arr', e.target.value)}
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Vuelta: salida')}</label>
+          <input type="datetime-local" value={f.ret_dep} onChange={e => up('ret_dep', e.target.value)}
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">{t('Vuelta: llegada')}</label>
+          <input type="datetime-local" value={f.ret_arr} onChange={e => up('ret_arr', e.target.value)}
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div className="col-span-2">
+          <label className="text-[10px] text-muted-foreground">{t('Localizador / referencia (opcional)')}</label>
+          <input value={f.booking_ref} onChange={e => up('booking_ref', e.target.value)} placeholder="ABC123"
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+        <div className="col-span-2">
+          <label className="text-[10px] text-muted-foreground">{t('Notas (terminal, asientos, escalas...)')}</label>
+          <input value={f.notes} onChange={e => up('notes', e.target.value)} placeholder="T4, asientos 12A-12B"
+            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={save} className="flex-1 h-9 rounded-lg text-xs">
+          <Save className="w-3 h-3 mr-1" />{t('Guardar billetes')}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="h-9 rounded-lg text-xs px-3">
+          Cancelar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
+  const { t } = useT();
   const [openDay, setOpenDay] = useState(0);
   // Enlaces SIEMPRE frescos desde los datos del viaje (fechas, personas, presupuesto).
   // Prevalecen sobre las URLs congeladas dentro de ai_itinerary (viajes antiguos).
@@ -68,10 +200,10 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
   if (!itinerary) return (
     <div className="bg-card rounded-2xl border border-dashed border-primary/30 p-8 text-center">
       <Sparkles className="w-10 h-10 text-primary/40 mx-auto mb-3" />
-      <p className="text-sm font-semibold text-foreground mb-1">Sin itinerario IA todavía</p>
+      <p className="text-sm font-semibold text-foreground mb-1">{t('Sin itinerario IA todavía')}</p>
       <p className="text-xs text-muted-foreground mb-4">Genera uno con un clic — incluye actividades, restaurantes, vuelos y hoteles</p>
       <Button onClick={onRegenerate} disabled={regenerating} className="rounded-xl h-9 text-xs">
-        {regenerating ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generando...</> : <><Sparkles className="w-3.5 h-3.5 mr-1.5" />Generar itinerario con IA</>}
+        {regenerating ? <><RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generando...</> : <><Sparkles className="w-3.5 h-3.5 mr-1.5" />{t('Generar itinerario con IA')}</>}
       </Button>
     </div>
   );
@@ -82,7 +214,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
       <div className="flex justify-end">
         <Button onClick={onRegenerate} disabled={regenerating} variant="outline" size="sm" className="h-8 rounded-xl text-xs">
           {regenerating ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
-          Regenerar
+          {t('Regenerar')}
         </Button>
       </div>
 
@@ -96,17 +228,17 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
       {/* Precio total destacado — por persona y grupo (#10) */}
       {(itinerary.precio_total_persona || itinerary.precio_total_grupo) && (
         <div className="bg-foreground text-background rounded-2xl p-4">
-          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">Coste estimado del viaje</p>
+          <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{t('Coste estimado del viaje')}</p>
           <div className="flex items-end justify-between gap-3 flex-wrap">
             {itinerary.precio_total_persona && (
               <div>
-                <p className="text-[10px] opacity-60">Por persona</p>
+                <p className="text-[10px] opacity-60">{t('Por persona')}</p>
                 <p className="text-lg font-bold">{itinerary.precio_total_persona}</p>
               </div>
             )}
             {itinerary.precio_total_grupo && (
               <div className="text-right">
-                <p className="text-[10px] opacity-60">Total grupo</p>
+                <p className="text-[10px] opacity-60">{t('Total grupo')}</p>
                 <p className="text-lg font-bold">{itinerary.precio_total_grupo}</p>
               </div>
             )}
@@ -118,19 +250,19 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
       <div className="grid grid-cols-2 gap-2">
         {itinerary.presupuesto_estimado && (
           <div className="bg-card rounded-xl border border-border p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Presupuesto est.</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{t('Presupuesto est.')}</p>
             <p className="text-xs font-bold text-foreground">{itinerary.presupuesto_estimado}</p>
           </div>
         )}
         {itinerary.clima_temporada && (
           <div className="bg-card rounded-xl border border-border p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Clima</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{t('Clima')}</p>
             <p className="text-xs font-bold text-foreground">{itinerary.clima_temporada}</p>
           </div>
         )}
         {itinerary.mejor_epoca && (
           <div className="bg-card rounded-xl border border-border p-3 col-span-2">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Mejor época para ir</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{t('Mejor época para ir')}</p>
             <p className="text-xs text-foreground">{itinerary.mejor_epoca}</p>
           </div>
         )}
@@ -141,7 +273,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         <CollapsibleSection
           headerBg="bg-green-50 dark:bg-green-900/20"
           icon={<DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" />}
-          title="Desglose del presupuesto"
+          title={t('Desglose del presupuesto')}
         >
           <div className="p-4 space-y-2">
             {Object.entries(itinerary.desglose_presupuesto).map(([k, v]) => {
@@ -162,7 +294,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         <CollapsibleSection
           headerBg="bg-blue-50 dark:bg-blue-900/20"
           icon={<Plane className="w-4 h-4 text-blue-600 flex-shrink-0" />}
-          title="Vuelos"
+          title={t('Vuelos')}
         >
           <div className="p-4 space-y-2">
             {itinerary.vuelos.precio_aproximado && (
@@ -216,7 +348,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         <CollapsibleSection
           headerBg="bg-amber-50 dark:bg-amber-900/20"
           icon={<Hotel className="w-4 h-4 text-amber-600 flex-shrink-0" />}
-          title="Alojamiento"
+          title={t('Alojamiento')}
         >
           <div className="p-4 space-y-2">
             {itinerary.hoteles.zona_recomendada && (
@@ -273,19 +405,19 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         <CollapsibleSection
           headerBg="bg-secondary"
           icon={<span className="text-base">🧰</span>}
-          title="Completa tu viaje"
+          title={t('Completa tu viaje')}
         >
           <div className="p-4 space-y-2.5">
             <p className="text-[11px] text-muted-foreground leading-relaxed mb-1">
-              Todo lo demás que puedes necesitar. Los marcados con ✨ se abren ya con tu destino puesto.
+              {t('Todo lo demás que puedes necesitar. Los marcados con ✨ se abren ya con tu destino puesto.')}
             </p>
             {[
-              { key: 'actividades', icon: '🎟️', titulo: 'Actividades y tours' },
-              { key: 'esim', icon: '📱', titulo: 'eSIM / datos móviles' },
-              { key: 'coches', icon: '🚗', titulo: 'Alquiler de coche' },
-              { key: 'traslados', icon: '🚕', titulo: 'Traslado del aeropuerto' },
-              { key: 'transporte', icon: '🚆', titulo: 'Tren / bus entre ciudades' },
-              { key: 'seguro', icon: '🛡️', titulo: 'Seguro de viaje' },
+              { key: 'actividades', icon: '🎟️', titulo: t('Actividades y tours') },
+              { key: 'esim', icon: '📱', titulo: t('eSIM / datos móviles') },
+              { key: 'coches', icon: '🚗', titulo: t('Alquiler de coche') },
+              { key: 'traslados', icon: '🚕', titulo: t('Traslado del aeropuerto') },
+              { key: 'transporte', icon: '🚆', titulo: t('Tren / bus entre ciudades') },
+              { key: 'seguro', icon: '🛡️', titulo: t('Seguro de viaje') },
             ].filter(row => (links?.extras || itinerary.extras)[row.key]).map(row => {
               const ex = (links?.extras || itinerary.extras)[row.key];
               return (
@@ -313,7 +445,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
         <CollapsibleSection
           headerBg="bg-green-50 dark:bg-green-900/20"
           icon={<span className="text-base">💡</span>}
-          title="Consejos de ahorro"
+          title={t('Consejos de ahorro')}
         >
           <div className="p-4">
             {itinerary.consejos_ahorro.map((c, i) => (
@@ -328,7 +460,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
       {/* Días del itinerario */}
       {itinerary.dias?.length > 0 && (
         <div>
-          <h3 className="text-sm font-bold text-foreground mb-3">📅 Itinerario día a día</h3>
+          <h3 className="text-sm font-bold text-foreground mb-3">📅 {t('Itinerario día a día')}</h3>
           <div className="space-y-3">
             {itinerary.dias.map((dia, idx) => (
               <div key={idx} className="bg-card rounded-2xl border border-border overflow-hidden">
@@ -375,11 +507,11 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
                             <div className="space-y-2">
                               {dia.actividades.map((act, ai) => {
                                 const franjaColors = {
-                                  'mañana': 'bg-amber-100 text-amber-700 border-amber-200',
-                                  'mediodía': 'bg-orange-100 text-orange-700 border-orange-200',
-                                  'tarde': 'bg-blue-100 text-blue-700 border-blue-200',
-                                  'atardecer': 'bg-pink-100 text-pink-700 border-pink-200',
-                                  'noche': 'bg-indigo-100 text-indigo-700 border-indigo-200',
+                                  'mañana': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+                                  'mediodía': 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
+                                  'tarde': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+                                  'atardecer': 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800',
+                                  'noche': 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800',
                                 };
                                 const colorClass = franjaColors[act.franja] || 'bg-secondary text-muted-foreground';
                                 return (
@@ -568,6 +700,7 @@ function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
 export default function TripDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useT();
   const { id: tripId } = useParams();   // funciona con HashRouter (el id NO está en pathname)
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState('');
@@ -673,10 +806,21 @@ export default function TripDetail() {
     } catch (e) {
       console.warn('No se pudo asegurar el sello del pasaporte:', e);
     }
+    // Mantener countries_visited en sincronía (lo usan Perfil, Recap y el contador)
+    try {
+      const me = await base44.auth.me();
+      const visited = me?.countries_visited || [];
+      if (trip?.destination_country && !visited.includes(trip.destination_country)) {
+        await base44.auth.updateMe({ countries_visited: [...visited, trip.destination_country] });
+      }
+    } catch (e) {
+      console.warn('No se pudo actualizar countries_visited:', e);
+    }
     queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
     queryClient.invalidateQueries({ queryKey: ['trips'] });
     queryClient.invalidateQueries({ queryKey: ['stamps'] });
-    toast.success('Viaje completado — sello añadido al pasaporte');
+    queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    toast.success(t('Viaje completado — sello añadido al pasaporte'));
   };
 
   const handleRegenerate = async () => {
@@ -790,10 +934,10 @@ export default function TripDetail() {
         <Tabs defaultValue="itinerary">
           <TabsList className="w-full bg-secondary/50">
             <TabsTrigger value="itinerary" className="flex-1 text-xs gap-1"><Sparkles className="w-3 h-3" />IA</TabsTrigger>
-            <TabsTrigger value="notes" className="flex-1 text-xs gap-1"><FileText className="w-3 h-3" />Notas</TabsTrigger>
-            <TabsTrigger value="photos" className="flex-1 text-xs gap-1"><Image className="w-3 h-3" />Fotos</TabsTrigger>
-            <TabsTrigger value="map" className="flex-1 text-xs gap-1"><Map className="w-3 h-3" />Mapa</TabsTrigger>
-            <TabsTrigger value="videos" className="flex-1 text-xs gap-1"><Video className="w-3 h-3" />Video</TabsTrigger>
+            <TabsTrigger value="notes" className="flex-1 text-xs gap-1"><FileText className="w-3 h-3" />{t('Notas')}</TabsTrigger>
+            <TabsTrigger value="photos" className="flex-1 text-xs gap-1"><Image className="w-3 h-3" />{t('Fotos')}</TabsTrigger>
+            <TabsTrigger value="map" className="flex-1 text-xs gap-1"><Map className="w-3 h-3" />{t('Mapa')}</TabsTrigger>
+            <TabsTrigger value="videos" className="flex-1 text-xs gap-1"><Video className="w-3 h-3" />{t('Video')}</TabsTrigger>
           </TabsList>
 
           {/* ── Itinerario IA ── */}
@@ -801,9 +945,10 @@ export default function TripDetail() {
             {regenerating && (
               <div className="flex items-center gap-2 bg-primary/10 rounded-xl px-4 py-3 mb-4">
                 <RefreshCw className="w-4 h-4 text-primary animate-spin" />
-                <span className="text-xs font-medium text-primary">Generando itinerario con IA...</span>
+                <span className="text-xs font-medium text-primary">{t('Generando itinerario con IA...')}</span>
               </div>
             )}
+            <TicketInfo trip={trip} tripId={tripId} queryClient={queryClient} />
             <AIItinerary
               itinerary={trip.ai_itinerary}
               trip={trip}

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getCountryName, getCountryEmoji, COUNTRIES } from '@/lib/countries';
 import StampItem from '@/components/passport/StampItem';
 import { toast } from 'sonner';
+import { useT } from '@/lib/i18n';
 
 const LOGO_URL = "/brand/logo.png";
 
@@ -32,6 +33,7 @@ const PASSPORT_COLORS = {
 
 export default function Passport() {
   const navigate = useNavigate();
+  const { t } = useT();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
@@ -120,7 +122,7 @@ export default function Passport() {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       queryClient.invalidateQueries({ queryKey: ['stamps'] });
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      toast.success('Viaje pasado agregado');
+      toast.success(t('Viaje pasado agregado'));
       setShowAddPastTrip(false);
       setPastTripForm({ destination_country: '', destination_city: '', trip_type: 'leisure', start_date: '', duration_days: '', title: '', notes: '', highlights: '' });
     } catch (error) {
@@ -153,8 +155,8 @@ export default function Passport() {
   return (
     <div className="min-h-screen bg-background pb-4">
       <div className="px-5 pt-5 pb-3">
-        <h1 className="text-2xl font-bold text-foreground">Pasaporte</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Tu colección de viajes</p>
+        <h1 className="text-2xl font-bold text-foreground">{t('Pasaporte')}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('Tu colección de viajes')}</p>
       </div>
 
       <div className="flex justify-center px-5 py-6">
@@ -200,7 +202,7 @@ export default function Passport() {
                 transition={{ repeat: Infinity, duration: 2 }}
                 className="absolute bottom-20"
               >
-                <span className={`text-[10px] ${colors.accent} opacity-50`}>Toca para abrir</span>
+                <span className={`text-[10px] ${colors.accent} opacity-50`}>{t('Toca para abrir')}</span>
               </motion.div>
             </motion.button>
           ) : (
@@ -316,10 +318,10 @@ export default function Passport() {
       {/* Stats */}
       <div className="px-5 mt-2">
         <div className="bg-card rounded-2xl border border-border p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Colección de sellos</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t('Colección de sellos')}</h3>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="text-2xl font-bold text-primary">{stamps.length}</span>
-            <span>países sellados en tu pasaporte</span>
+            <span>{t('países sellados en tu pasaporte')}</span>
           </div>
           {stamps.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
