@@ -92,8 +92,8 @@ export default function Trips() {
     <div className="min-h-screen bg-background pb-4">
       {/* Header */}
       <div className="px-5 pt-5 pb-3">
-        <h1 className="text-2xl font-bold text-foreground">Planificador</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Tus viajes pendientes y en curso</p>
+        <h1 className="text-2xl font-bold text-foreground">{t('Planificador')}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('Tus viajes pendientes y en curso')}</p>
       </div>
 
       {/* Action buttons — 3 botones (orden: sugeridos, sorpresa más oscuro, crear yo) */}
@@ -103,14 +103,14 @@ export default function Trips() {
           className="h-20 rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground flex flex-col items-center gap-1 hover:opacity-90 px-2"
         >
           <Sparkles className="w-5 h-5" />
-          <span className="text-[11px] font-semibold text-center leading-tight">Viajes sugeridos</span>
+          <span className="text-[11px] font-semibold text-center leading-tight">{t('Viajes sugeridos')}</span>
         </Button>
         <Button
           onClick={() => navigate('/trip-wizard?mode=surprise')}
           className="h-20 rounded-2xl bg-foreground text-background flex flex-col items-center gap-1 hover:opacity-90 px-2"
         >
           <Shuffle className="w-5 h-5" />
-          <span className="text-[11px] font-semibold text-center leading-tight">Destino sorpresa</span>
+          <span className="text-[11px] font-semibold text-center leading-tight">{t('Destino sorpresa')}</span>
         </Button>
         <Button
           onClick={() => navigate('/trip-wizard?mode=custom')}
@@ -118,7 +118,7 @@ export default function Trips() {
           className="h-20 rounded-2xl border-2 border-border flex flex-col items-center gap-1 hover:border-primary/50 px-2"
         >
           <PenLine className="w-5 h-5 text-primary" />
-          <span className="text-[11px] font-semibold text-center leading-tight">Crear yo mismo</span>
+          <span className="text-[11px] font-semibold text-center leading-tight">{t('Crear yo mismo')}</span>
         </Button>
       </div>
 
@@ -126,7 +126,7 @@ export default function Trips() {
       <div className="px-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">{t('Destinos populares')}</h3>
-          <span className="text-[10px] text-muted-foreground">⚡ Baratos · 🌟 Premium</span>
+          <span className="text-[10px] text-muted-foreground">⚡ {t('Baratos')} · 🌟 {t('Premium')}</span>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
           {SUGGESTED_DESTINATIONS.map((dest) => {

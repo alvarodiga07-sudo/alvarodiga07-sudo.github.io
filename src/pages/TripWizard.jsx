@@ -11,6 +11,7 @@ import { COUNTRIES } from '@/lib/countries';
 import { generateItinerary, hasApiKey } from '@/lib/claudeAI';
 import { getRegionData, CITY_ATTRACTIONS, CITIES_BY_COUNTRY } from '@/lib/destinationData';
 import { format, addDays } from 'date-fns';
+import { useT } from '@/lib/i18n';
 
 // Rangos de presupuesto seleccionables por nivel (#5)
 const BUDGET_RANGES = {
@@ -161,6 +162,7 @@ function OtherInput({ values, onAdd, onRemove, placeholder }) {
 }
 
 export default function TripWizard() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -449,7 +451,7 @@ export default function TripWizard() {
             {step === 0 && (
               <motion.div key={`dest-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">
-                  {isSurprise ? '🎲 Destino sorpresa' : '¿A dónde viajas?'}
+                  {isSurprise ? `🎲 ${t('Destino sorpresa')}` : t('¿A dónde viajas?')}
                 </h2>
                 {isSurprise && (
                   <div className="bg-foreground text-background rounded-xl p-3 text-center">
@@ -509,19 +511,19 @@ export default function TripWizard() {
                         {id:'city', label:'Ciudad', icon:'🏙️'},
                         {id:'cultural', label:'Cultural', icon:'🏛️'},
                         {id:'exotic', label:'Exótico', icon:'🌴'},
-                      ].map(t => (
-                        <button key={t.id || 'random'} type="button"
-                          onClick={() => up('surprise_vibe', t.id)}
-                          className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 ${form.surprise_vibe === t.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
-                          <span className="text-2xl">{t.icon}</span>
-                          <span className="text-[10px] font-bold text-center">{t.label}</span>
+                      ].map(ty => (
+                        <button key={ty.id || 'random'} type="button"
+                          onClick={() => up('surprise_vibe', ty.id)}
+                          className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 ${form.surprise_vibe === ty.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+                          <span className="text-2xl">{ty.icon}</span>
+                          <span className="text-[10px] font-bold text-center">{t(ty.label)}</span>
                         </button>
                       ))}
                     </div>
                   </Field>
                 )}
 
-                <Field label="Nombre del viaje (opcional)">
+                <Field label={t('Nombre del viaje (opcional)')}>
                   <Input placeholder={countryName ? `ej. Aventura en ${countryName}` : 'ej. Viaje sorpresa'} value={form.title} onChange={e => up('title', e.target.value)} className="h-11 rounded-xl" />
                 </Field>
               </motion.div>
@@ -530,27 +532,27 @@ export default function TripWizard() {
             {/* PASO 1: Fechas */}
             {step === 1 && (
               <motion.div key={`dates-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
-                <h2 className="text-2xl font-bold text-center">Fechas del viaje</h2>
-                <Field label="Fecha de salida">
+                <h2 className="text-2xl font-bold text-center">{t('Fechas del viaje')}</h2>
+                <Field label={t('Fecha de salida')}>
                   <Input type="date" value={form.start_date} onChange={e => up('start_date', e.target.value)} className="h-11 rounded-xl" />
                 </Field>
-                <Field label="Duración">
+                <Field label={t('Duración')}>
                   <div className="flex items-center gap-4 bg-secondary/50 rounded-xl p-3">
                     <button onClick={() => up('duration_days', Math.max(1, Number(form.duration_days) - 1))} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center hover:border-primary">−</button>
-                    <div className="flex-1 text-center"><span className="text-3xl font-bold">{form.duration_days}</span><span className="text-sm text-muted-foreground ml-1">días</span></div>
+                    <div className="flex-1 text-center"><span className="text-3xl font-bold">{form.duration_days}</span><span className="text-sm text-muted-foreground ml-1">{t('días')}</span></div>
                     <button onClick={() => up('duration_days', Number(form.duration_days) + 1)} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center hover:border-primary">+</button>
                   </div>
                 </Field>
                 {form.start_date && form.end_date && (
                   <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Tu viaje</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('Tu viaje')}</p>
                     <p className="text-base font-bold text-primary">{format(new Date(form.start_date+'T12:00'), 'dd MMM')} → {format(new Date(form.end_date+'T12:00'), 'dd MMM yyyy')}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Vuelta calculada automáticamente</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('Vuelta calculada automáticamente')}</p>
                   </div>
                 )}
                 <label className="flex items-center gap-3 cursor-pointer bg-secondary/50 rounded-xl p-3">
                   <input type="checkbox" checked={form.flexible_dates} onChange={e => up('flexible_dates', e.target.checked)} className="w-4 h-4 accent-primary" />
-                  <span className="text-sm">Fechas flexibles para mejores precios</span>
+                  <span className="text-sm">{t('Fechas flexibles para mejores precios')}</span>
                 </label>
               </motion.div>
             )}
@@ -558,13 +560,13 @@ export default function TripWizard() {
             {/* PASO 2: Presupuesto + prioridades */}
             {step === 2 && (
               <motion.div key={`budget-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
-                <h2 className="text-2xl font-bold text-center">Presupuesto *</h2>
+                <h2 className="text-2xl font-bold text-center">{t('Presupuesto')} *</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {BUDGETS.map(b => (
                     <motion.button key={b.id} whileTap={{ scale:0.95 }} onClick={() => up('budget_type', b.id)}
                       className={`flex flex-col items-start gap-1 p-4 rounded-2xl border-2 text-left ${form.budget_type===b.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
                       <span className="text-3xl">{b.icon}</span>
-                      <span className="text-sm font-bold">{b.label}</span>
+                      <span className="text-sm font-bold">{t(b.label)}</span>
                       <span className="text-[10px] text-muted-foreground">{b.desc}</span>
                     </motion.button>
                   ))}
@@ -574,15 +576,15 @@ export default function TripWizard() {
                 {form.budget_type && (
                   <div className="bg-card border border-border rounded-2xl p-4 space-y-4">
                     <div>
-                      <p className="text-sm font-bold text-foreground">¿En qué prefieres gastar más?</p>
-                      <p className="text-xs text-muted-foreground">Ajusta cada categoría — la IA priorizará tu presupuesto</p>
+                      <p className="text-sm font-bold text-foreground">{t('¿En qué prefieres gastar más?')}</p>
+                      <p className="text-xs text-muted-foreground">{t('Ajusta cada categoría — la IA priorizará tu presupuesto')}</p>
                     </div>
                     {SPEND_CATEGORIES.map(cat => (
                       <div key={cat.id}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold flex items-center gap-1.5">{cat.icon} {cat.label}</span>
+                          <span className="text-xs font-semibold flex items-center gap-1.5">{cat.icon} {t(cat.label)}</span>
                           <span className="text-[10px] text-muted-foreground">
-                            {form.priorities[cat.id] < 35 ? 'Ahorrar' : form.priorities[cat.id] > 65 ? 'Gastar más' : 'Equilibrado'}
+                            {form.priorities[cat.id] < 35 ? t('Ahorrar') : form.priorities[cat.id] > 65 ? t('Gastar más') : t('Equilibrado')}
                           </span>
                         </div>
                         <input type="range" min="0" max="100" step="10" value={form.priorities[cat.id]}
@@ -612,14 +614,14 @@ export default function TripWizard() {
             {/* PASO 3: Viajeros */}
             {step === 3 && (
               <motion.div key={`travelers-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
-                <h2 className="text-2xl font-bold text-center">¿Quién viaja?</h2>
-                <Field label="¿Con quién vas?">
+                <h2 className="text-2xl font-bold text-center">{t('¿Quién viaja?')}</h2>
+                <Field label={t('¿Con quién vas?')}>
                   <div className="grid grid-cols-3 gap-2">
                     {COMPANIONS.map(c => (
                       <motion.button key={c.id} whileTap={{ scale:0.95 }} onClick={() => up('companions', c.id)}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 ${form.companions===c.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
                         <span className="text-2xl">{c.icon}</span>
-                        <span className="text-[10px] font-semibold text-center leading-tight">{c.label}</span>
+                        <span className="text-[10px] font-semibold text-center leading-tight">{t(c.label)}</span>
                       </motion.button>
                     ))}
                   </div>
@@ -652,7 +654,7 @@ export default function TripWizard() {
                       <motion.button key={l.id} whileTap={{ scale:0.95 }} onClick={() => up('luggage', l.id)}
                         className={`flex flex-col items-center gap-1 p-3 rounded-2xl border-2 ${form.luggage===l.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
                         <span className="text-2xl">{l.icon}</span>
-                        <span className="text-[10px] font-bold text-center leading-tight">{l.label}</span>
+                        <span className="text-[10px] font-bold text-center leading-tight">{t(l.label)}</span>
                         <span className="text-[9px] text-muted-foreground text-center leading-tight">{l.desc}</span>
                       </motion.button>
                     ))}
@@ -664,13 +666,13 @@ export default function TripWizard() {
             {/* PASO 4: Tipo */}
             {step === 4 && (
               <motion.div key={`type-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
-                <h2 className="text-2xl font-bold text-center">Tipo de viaje *</h2>
+                <h2 className="text-2xl font-bold text-center">{t('Tipo de viaje')} *</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {TRIP_TYPES.map(t => (
-                    <motion.button key={t.id} whileTap={{ scale:0.95 }} onClick={() => up('trip_type', t.id)}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 ${form.trip_type===t.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
-                      <span className="text-3xl">{t.icon}</span>
-                      <span className="text-xs font-semibold">{t.label}</span>
+                  {TRIP_TYPES.map(ty => (
+                    <motion.button key={ty.id} whileTap={{ scale:0.95 }} onClick={() => up('trip_type', ty.id)}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 ${form.trip_type===ty.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+                      <span className="text-3xl">{ty.icon}</span>
+                      <span className="text-xs font-semibold">{t(ty.label)}</span>
                     </motion.button>
                   ))}
                 </div>
@@ -737,7 +739,7 @@ export default function TripWizard() {
         {step > 0 && <Button variant="outline" onClick={() => setStep(s => s-1)} className="h-12 rounded-xl px-5"><ChevronLeft className="w-5 h-5" /></Button>}
         <Button onClick={step === STEPS.length-1 ? handleCreate : () => setStep(s => s+1)} disabled={!canNext()} className="flex-1 h-12 rounded-xl text-base font-semibold">
           {step === STEPS.length-1
-            ? <><Sparkles className="w-5 h-5 mr-2" />{isSurprise ? '🎲 Revelar destino' : 'Crear itinerario'}</>
+            ? <><Sparkles className="w-5 h-5 mr-2" />{isSurprise ? `🎲 ${t('Revelar destino')}` : t('Crear itinerario')}</>
             : <>Siguiente <ChevronRight className="w-5 h-5 ml-1" /></>}
         </Button>
       </div>

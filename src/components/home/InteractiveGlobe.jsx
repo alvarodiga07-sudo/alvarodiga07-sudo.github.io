@@ -35,6 +35,9 @@ const N2A = {
   "768":"TG","776":"TO","780":"TT","795":"TM","792":"TR","798":"TV","788":"TN",
   "804":"UA","800":"UG","858":"UY","860":"UZ","548":"VU","336":"VA","862":"VE",
   "704":"VN","887":"YE","894":"ZM","716":"ZW",
+  // Códigos que FALTABAN — sus países existían en el topojson pero nunca se
+  // iluminaban al visitarlos (bug: "visité Armenia y no se marca"):
+  "051":"AM","276":"DE","634":"QA","682":"SA","158":"TW",
 };
 
 // [lon, lat, name, capital, size] — 196 países con coordenadas precisas

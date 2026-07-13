@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { getDateLocale as __gdl } from '@/lib/i18n';
+const es = undefined; // locale ahora dinámico
 import { toast } from 'sonner';
 
 export default function SocialFeed() {
@@ -298,7 +299,7 @@ function FeedItem({ post, active, muted, currentUser, onCommentsClick, queryClie
         {/* Fecha */}
         {post.created_date && (
           <p className="text-[10px] text-white/60 mt-2">
-            {format(new Date(post.created_date), "d MMM yyyy", { locale: es })}
+            {format(new Date(post.created_date), "d MMM yyyy", { locale: __gdl() })}
           </p>
         )}
       </div>
@@ -411,7 +412,7 @@ function CommentsDrawer({ post, currentUser, onClose }) {
                       <p className="text-xs text-foreground/90 mt-0.5 whitespace-pre-wrap break-words">{c.text}</p>
                       {c.created_date && (
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {format(new Date(c.created_date), "d MMM · HH:mm", { locale: es })}
+                          {format(new Date(c.created_date), "d MMM · HH:mm", { locale: __gdl() })}
                         </p>
                       )}
                     </div>

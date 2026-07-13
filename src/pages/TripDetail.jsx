@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { getDateLocale as __gdl } from '@/lib/i18n';
+const es = undefined; // locale ahora dinámico
 import TripMap from '@/components/trips/TripMap';
 import TripVideoTab from '@/components/trips/TripVideoTab';
 import { toast } from 'sonner';
@@ -84,7 +85,7 @@ function TicketInfo({ trip, tripId, queryClient }) {
 
   const fmtDT = (v) => {
     if (!v) return null;
-    try { return format(new Date(v), "dd MMM · HH:mm", { locale: es }); } catch { return v; }
+    try { return format(new Date(v), "dd MMM · HH:mm", { locale: __gdl() }); } catch { return v; }
   };
 
   if (!saved && !editing) {
@@ -876,7 +877,7 @@ export default function TripDetail() {
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <h1 className="text-lg font-bold text-foreground flex-1 pr-2">{trip.title}</h1>
-            {trip.status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[trip.status] || STATUS_COLORS.planning}`}>{STATUS_LABELS[trip.status]}</span>}
+            {trip.status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[trip.status] || STATUS_COLORS.planning}`}>{t(STATUS_LABELS[trip.status])}</span>}
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-primary" />{getCountryName(trip.destination_country)}{trip.destination_city && ` · ${trip.destination_city}`}</span>

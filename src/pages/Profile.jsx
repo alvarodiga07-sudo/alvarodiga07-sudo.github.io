@@ -1,3 +1,4 @@
+import { useT } from '@/lib/i18n';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
@@ -12,6 +13,7 @@ import MiniWorldMap from '@/components/profile/MiniWorldMap';
 import CreatePostModal from '@/components/profile/CreatePostModal';
 
 export default function Profile() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreatePost, setShowCreatePost] = useState(false);

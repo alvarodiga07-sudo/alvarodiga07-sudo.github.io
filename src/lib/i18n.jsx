@@ -5,8 +5,14 @@
 //   traducida, cae al español (nunca se ve una clave "pelada" en pantalla).
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { MESSAGES } from './translations';
+import { es as dfnsEs, enUS as dfnsEn } from 'date-fns/locale';
 
 const LANG_KEY = 'waddle_lang';
+
+// Locale de date-fns según el idioma activo (para "23 jul" vs "Jul 23").
+// Se lee en render: al cambiar de idioma el contexto re-renderiza y se re-evalúa.
+export const getDateLocale = () =>
+  (localStorage.getItem(LANG_KEY) || 'es') === 'en' ? dfnsEn : dfnsEs;
 const LanguageContext = createContext({ lang: 'es', setLang: () => {}, t: (k) => k });
 
 export function LanguageProvider({ children }) {

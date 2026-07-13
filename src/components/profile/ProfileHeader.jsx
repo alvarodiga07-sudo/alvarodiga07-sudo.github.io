@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useT } from '@/lib/i18n';
 import { Link } from 'react-router-dom';
 import { Settings, MapPin, Camera, Edit2, Check, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,6 +12,7 @@ import { toast } from 'sonner';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
 
 export default function ProfileHeader({ user, followersCount = 0, followingCount = 0 }) {
+  const { t } = useT();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -98,15 +100,15 @@ export default function ProfileHeader({ user, followersCount = 0, followingCount
         <div className="flex-1 grid grid-cols-3 text-center">
           <div>
             <p className="text-lg font-bold text-foreground">{visitedCount}</p>
-            <p className="text-[10px] text-muted-foreground">Países</p>
+            <p className="text-[10px] text-muted-foreground">{t('Países')}</p>
           </div>
           <div>
             <p className="text-lg font-bold text-foreground">{followersCount}</p>
-            <p className="text-[10px] text-muted-foreground">Seguidores</p>
+            <p className="text-[10px] text-muted-foreground">{t('Seguidores')}</p>
           </div>
           <div>
             <p className="text-lg font-bold text-foreground">{followingCount}</p>
-            <p className="text-[10px] text-muted-foreground">Siguiendo</p>
+            <p className="text-[10px] text-muted-foreground">{t('Siguiendo')}</p>
           </div>
         </div>
       </div>
@@ -156,10 +158,10 @@ export default function ProfileHeader({ user, followersCount = 0, followingCount
         ) : (
           <>
             <Button onClick={() => setEditMode(true)} variant="outline" className="flex-1 h-9 rounded-xl text-xs font-semibold gap-1">
-              <Edit2 className="w-4 h-4" /> Editar perfil
+              <Edit2 className="w-4 h-4" /> {t('Editar perfil')}
             </Button>
             <Button variant="outline" className="h-9 rounded-xl text-xs font-semibold px-4">
-              Compartir
+              {t('Compartir')}
             </Button>
           </>
         )}

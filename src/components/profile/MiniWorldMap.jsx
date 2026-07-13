@@ -1,3 +1,4 @@
+import { useT } from '@/lib/i18n';
 import React, { useMemo } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +28,7 @@ const N2A = {
 };
 
 export default function MiniWorldMap({ visitedCountries = [], trips = [] }) {
+  const { t } = useT();
   const navigate = useNavigate();
   const visitedSet = useMemo(() => new Set(visitedCountries), [visitedCountries]);
 
@@ -48,12 +50,12 @@ export default function MiniWorldMap({ visitedCountries = [], trips = [] }) {
   return (
     <div className="mx-5 mt-4 bg-card rounded-2xl border border-border overflow-hidden">
       <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mapa de viajes</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('Mapa de viajes')}</span>
         <div className="flex items-center gap-2">
           {visitedCountries.length > 0 && (
             <span className="text-xs font-bold text-primary">{visitedCountries.length} países</span>
           )}
-          <span className="text-[10px] text-muted-foreground">Toca un país amarillo para ver el viaje</span>
+          <span className="text-[10px] text-muted-foreground">{t('Toca un país amarillo para ver el viaje')}</span>
         </div>
       </div>
       <div className="pb-3">

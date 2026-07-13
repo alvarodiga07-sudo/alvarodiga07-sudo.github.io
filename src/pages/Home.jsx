@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, ChevronDown, MapPin, Calendar } from 'lucide-react';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { getDateLocale } from '@/lib/i18n';
 import { useT } from '@/lib/i18n';
 
 export default function Home() {
@@ -142,7 +142,7 @@ export default function Home() {
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Calendar className="w-3 h-3" />
                         {tp.start_date
-                          ? format(new Date(tp.start_date + 'T12:00'), 'MMM yyyy', { locale: es })
+                          ? format(new Date(tp.start_date + 'T12:00'), 'MMM yyyy', { locale: getDateLocale() })
                           : t('Sin fecha')}
                         {tp.duration_days ? ` · ${tp.duration_days} ${t('días')}` : ''}
                       </p>
@@ -173,8 +173,8 @@ export default function Home() {
       >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-base font-bold text-foreground">Países conquistados</h2>
-            <p className="text-xs text-muted-foreground">{completedTrips.length} viaje{completedTrips.length !== 1 ? 's' : ''} completado{completedTrips.length !== 1 ? 's' : ''}</p>
+            <h2 className="text-base font-bold text-foreground">{t('Países conquistados')}</h2>
+            <p className="text-xs text-muted-foreground">{completedTrips.length} {completedTrips.length === 1 ? t('viaje completado') : t('viajes completados')}</p>
           </div>
           {/* Filtro por año */}
           <div className="relative">
@@ -184,7 +184,7 @@ export default function Home() {
               className="appearance-none text-xs font-semibold bg-secondary/60 border border-border rounded-xl px-3 py-1.5 pr-6 text-foreground cursor-pointer outline-none focus:border-primary"
             >
               {years.map(y => (
-                <option key={y} value={y}>{y === 'todos' ? 'Todos los años' : y}</option>
+                <option key={y} value={y}>{y === 'todos' ? t('Todos los años') : y}</option>
               ))}
             </select>
             <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
@@ -218,8 +218,8 @@ export default function Home() {
                 {/* Fecha */}
                 <span className="text-xs text-muted-foreground flex-shrink-0">
                   · {trip.start_date
-                    ? format(new Date(trip.start_date), "d MMM yyyy", { locale: es })
-                    : 'Sin fecha'}
+                    ? format(new Date(trip.start_date), "d MMM yyyy", { locale: getDateLocale() })
+                    : t('Sin fecha')}
                 </span>
                 {/* Días */}
                 {trip.duration_days && (
@@ -228,12 +228,12 @@ export default function Home() {
                 {/* Personas */}
                 {trip.travelers_count > 0 && (
                   <span className="text-xs text-muted-foreground flex-shrink-0">
-                    · {trip.travelers_count} {trip.travelers_count === 1 ? 'persona' : 'pers'}
+                    · {trip.travelers_count} {trip.travelers_count === 1 ? t('persona') : t('pers')}
                   </span>
                 )}
                 {/* Estado */}
                 <span className="ml-auto text-[10px] font-semibold text-green-700 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                  Completado
+                  {t('Completado')}
                 </span>
               </motion.button>
             ))}

@@ -19,6 +19,12 @@ export const N2A = {
   "860":"UZ","862":"VE","887":"YE","894":"ZM","140":"CF","148":"TD","178":"CG",
   "180":"CD","204":"BJ","226":"GQ","266":"GA","270":"GM","275":"PS","296":"KI",
   "304":"GL","324":"GN","384":"CI","408":"KP","426":"LS","478":"MR","688":"RS",
+  // Códigos que FALTABAN (países seleccionables que no se iluminaban en el
+  // mini-mapa del perfil ni en el recap aunque estuvieran visitados):
+  "020":"AD","028":"AG","031":"AZ","044":"BS","048":"BH","051":"AM","052":"BB",
+  "064":"BT","070":"BA","072":"BW","084":"BZ","096":"BN","104":"MM","112":"BY",
+  "144":"LK","158":"TW","442":"LU","462":"MV","470":"MT","512":"OM","600":"PY",
+  "702":"SG","784":"AE",
 };
 
 // Centros geográficos de cada país para mostrar nombres en el mapa

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { getStampDesign, getStampPngUrl } from '@/lib/stampDesigns';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { getDateLocale } from '@/lib/i18n';
 
 export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
   const design = getStampDesign(stamp.country_code);
@@ -11,7 +11,7 @@ export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
   const showPng = pngUrl && !imgError;
 
   const dateLabel = stamp.visit_date
-    ? format(new Date(stamp.visit_date), "d MMM yyyy", { locale: es })
+    ? format(new Date(stamp.visit_date), "d MMM yyyy", { locale: getDateLocale() })
     : null;
   const durationLabel = durationDays
     ? `${durationDays} día${durationDays !== 1 ? 's' : ''}`
