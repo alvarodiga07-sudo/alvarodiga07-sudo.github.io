@@ -191,12 +191,12 @@ function TicketInfo({ trip, tripId, queryClient }) {
   );
 }
 
-function AIItinerary({ itinerary, trip, onRegenerate, regenerating }) {
+function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
   const { t } = useT();
   const [openDay, setOpenDay] = useState(0);
   // Enlaces SIEMPRE frescos desde los datos del viaje (fechas, personas, presupuesto).
   // Prevalecen sobre las URLs congeladas dentro de ai_itinerary (viajes antiguos).
-  const links = buildSearchLinks(trip);
+  const links = buildSearchLinks(trip, user);
 
   if (!itinerary) return (
     <div className="bg-card rounded-2xl border border-dashed border-primary/30 p-8 text-center">
@@ -717,6 +717,15 @@ export default function TripDetail() {
     enabled: !!tripId,
   });
 
+  // Necesario como fallback de origin_country: algunos viajes (sobre todo
+  // "Destino sorpresa" o antiguos) nunca guardaron el país de salida, y sin
+  // él los enlaces de vuelo (Aviasales/Skyscanner/Kiwi) no pueden prellenar
+  // fecha+origen+destino+pasajeros y caen todos al enlace genérico sin datos.
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me(),
+  });
+
   const { data: photos = [] } = useQuery({
     queryKey: ['tripPhotos', tripId],
     queryFn: () => base44.entities.TripPhoto.filter({ trip_id: tripId }),
@@ -953,6 +962,7 @@ export default function TripDetail() {
             <AIItinerary
               itinerary={trip.ai_itinerary}
               trip={trip}
+              user={currentUser}
               onRegenerate={handleRegenerate}
               regenerating={regenerating}
             />

@@ -27,3 +27,32 @@ export function wrapAffiliate(url, programKey) {
   if (!prog) return url; // sin ids todavía → enlace directo
   return `https://tp.media/r?marker=${TP_MARKER}&trs=${TP_TRS}&p=${prog.p}&campaign_id=${prog.campaign}&u=${encodeURIComponent(url)}`;
 }
+
+// ── Marcas "Ready-made by brands" (2026-07-13) ──
+// Estas NO pasan por tp.media: cada una redirige DIRECTO a su propio dominio
+// (o red de afiliación propia) con su parámetro de tracking. Los valores salen
+// de resolver los enlaces tpk.mx que genera el panel de Travelpayouts (Tools →
+// Ready-made by brands → marca) — son fijos por cuenta, no caducan por click.
+// Verificado en vivo (navegador real) que cada uno mantiene el tracking y
+// llega a la página correcta: Kiwi, Klook (con &query= de la ciudad), AutoEurope
+// (home), Welcome Pickups (sightseeing_rides/cities, su única landing real).
+const DIRECT_TRACKING = {
+  kiwi: 'affilid=travelpayoutsdeeplink_alvarodiga07-sudo.github.io_bc834da1a4c148fca59dc065b-750118',
+  welcomepickups: 'aff_track_id=395451969c214782b2e208837-750118&utm_source=travelpayouts',
+  klook: 'aid=api%7C13694%7C418eadb83cb9427ea552298c4-750118%7Cpid%7C750118',
+  autoeurope: 'aff=travelpayoutseu&sub_id=c1ff31f5a79e4-750118',
+};
+
+export function wrapDirect(url, key) {
+  const qs = DIRECT_TRACKING[key];
+  if (!qs) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}${qs}`;
+}
+
+// Airalo va por Impact.com (pxf.io), una red de afiliados distinta — el
+// tracking se registra en SU dominio, no en airalo.com. Verificado en vivo que
+// el parámetro u= hace de "deep link": redirige con tracking a la página
+// concreta del eSIM del país (en vez de al catálogo genérico de la app).
+export function buildAiraloAffiliateUrl(destinationUrl) {
+  return `https://airalo.pxf.io/c/1209822/1471169/15608?sharedID=750118_&subId1=ff3b51e80a99442d8317eb729-750118&u=${encodeURIComponent(destinationUrl)}`;
+}

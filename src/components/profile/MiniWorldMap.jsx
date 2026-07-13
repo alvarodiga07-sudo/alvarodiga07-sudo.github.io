@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { useNavigate } from 'react-router-dom';
 import { N2A } from '@/lib/mapData';
-import GEO_URL from 'world-atlas/countries-110m.json?url';
+import GEO_URL from 'world-atlas/countries-50m.json?url';
 
 export default function MiniWorldMap({ visitedCountries = [], trips = [] }) {
   const { t } = useT();

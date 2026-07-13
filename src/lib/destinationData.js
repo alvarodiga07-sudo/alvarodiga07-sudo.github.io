@@ -454,18 +454,78 @@ export const CITY_IATA = {
   'Auckland':'AKL','Queenstown':'ZQN','Wellington':'WLG','Nadi':'NAN',
 };
 
-// IATA del país de origen (capital/aeropuerto principal) para la URL de salida
+// IATA del país de origen (capital/aeropuerto principal) para la URL de salida.
+// Antes solo cubría 24 países de 119 seleccionables — cualquier viajero que
+// saliera desde el resto nunca conseguía enlaces con fecha/origen/destino
+// prellenados (Aviasales/Skyscanner/Kiwi se caían todos al enlace genérico).
 export const ORIGIN_IATA = {
   ES:'MAD', FR:'PAR', IT:'ROM', DE:'FRA', GB:'LON', PT:'LIS', NL:'AMS', BE:'BRU',
   CH:'ZRH', AT:'VIE', IE:'DUB', US:'NYC', CA:'YTO', MX:'MEX', BR:'SAO', AR:'BUE',
   JP:'TYO', CN:'BJS', AU:'SYD', IN:'DEL', RU:'MOW', PL:'WAW', SE:'STO', NO:'OSL',
+  AF:'KBL', AL:'TIA', DZ:'ALG', AD:'BCN', AO:'LAD', AG:'ANU', AM:'EVN', AZ:'GYD',
+  BS:'NAS', BH:'BAH', BD:'DAC', BB:'BGI', BY:'MSQ', BZ:'BZE', BJ:'COO', BT:'PBH',
+  BO:'LPB', BA:'SJJ', BW:'GBE', BN:'BWN', BG:'SOF', KH:'PNH', CM:'DLA', CL:'SCL',
+  CO:'BOG', CR:'SJO', HR:'ZAG', CU:'HAV', CY:'LCA', CZ:'PRG', DK:'CPH', DO:'SDQ',
+  EC:'UIO', EG:'CAI', SV:'SAL', EE:'TLL', ET:'ADD', FI:'HEL', GH:'ACC', GR:'ATH',
+  GT:'GUA', HN:'TGU', HU:'BUD', IS:'KEF', ID:'JKT', IR:'THR', IQ:'BGW', IL:'TLV',
+  JM:'KIN', JO:'AMM', KZ:'ALA', KE:'NBO', KR:'SEL', KW:'KWI', LV:'RIX', LB:'BEY',
+  LT:'VNO', LU:'LUX', MY:'KUL', MV:'MLE', MT:'MLA', MA:'CMN', MZ:'MPM', MM:'RGN',
+  NP:'KTM', NZ:'AKL', NI:'MGA', NG:'LOS', OM:'MCT', PK:'ISB', PA:'PTY', PY:'ASU',
+  PE:'LIM', PH:'MNL', QA:'DOH', RO:'BUH', SA:'RUH', SN:'DKR', RS:'BEG', SG:'SIN',
+  SK:'BTS', SI:'LJU', ZA:'JNB', LK:'CMB', TW:'TPE', TZ:'DAR', TH:'BKK', TN:'TUN',
+  TR:'IST', UA:'IEV', AE:'DXB', UY:'MVD', UZ:'TAS', VE:'CCS', VN:'SGN',
 };
+
+// Alias en inglés de ciudades cuyo nombre difiere del español más allá de un
+// simple acento (Roma/Rome, Viena/Vienna, Praga/Prague...) — necesarios desde
+// que la app tiene modo inglés y el generador de IA puede devolver nombres en
+// inglés. Los que solo cambian por un acento (Múnich/Munich, Ámsterdam/
+// Amsterdam) ya los resuelve normalizeCity() quitando diacríticos.
+const CITY_IATA_EN_ALIASES = {
+  'Rome':'ROM', 'Venice':'VCE', 'Florence':'FLR', 'Milan':'MIL', 'Naples':'NAP',
+  'Munich':'MUC', 'Hamburg':'HAM', 'Frankfurt':'FRA', 'Cologne':'CGN',
+  'London':'LON', 'Lisbon':'LIS', 'Athens':'ATH', 'Amsterdam':'AMS',
+  'Rotterdam':'RTM', 'Zurich':'ZRH', 'Geneva':'GVA', 'Vienna':'VIE',
+  'Brussels':'BRU', 'Dublin':'DUB', 'Prague':'PRG', 'Cracow':'KRK',
+  'Warsaw':'WAW', 'Stockholm':'STO', 'Copenhagen':'CPH', 'Reykjavik':'REK',
+  'Bucharest':'BUH', 'Sofia':'SOF', 'Vilnius':'VNO', 'Kyiv':'IEV', 'Kiev':'IEV',
+  'Tokyo':'TYO', 'Kyoto':'OSA', 'Beijing':'BJS', 'Shanghai':'SHA',
+  'Seoul':'SEL', 'Hanoi':'HAN', 'Jakarta':'JKT', 'Delhi':'DEL', 'Mumbai':'BOM',
+  'Kathmandu':'KTM', 'Istanbul':'IST', 'Dubai':'DXB', 'Abu Dhabi':'AUH',
+  'Doha':'DOH', 'Muscat':'MCT', 'Jerusalem':'TLV', 'Amman':'AMM', 'Riyadh':'RUH',
+  'Jeddah':'JED', 'Fez':'FEZ', 'Cairo':'CAI', 'Luxor':'LXR', 'Alexandria':'ALY',
+  'Tunis':'TUN', 'Algiers':'ALG', 'Cape Town':'CPT', 'Johannesburg':'JNB',
+  'Addis Ababa':'ADD', 'Dakar':'DKR', 'New York':'NYC', 'Los Angeles':'LAX',
+  'Chicago':'CHI', 'Montreal':'YMQ', 'Mexico City':'MEX', 'Guadalajara':'GDL',
+  'Rio de Janeiro':'RIO', 'Sao Paulo':'SAO', 'São Paulo':'SAO', 'Bogota':'BOG',
+  'Bogotá':'BOG', 'Medellin':'MDE', 'Santiago':'SCL', 'Quito':'UIO', 'La Paz':'LPB',
+  'Panama City':'PTY', 'Havana':'HAV', 'Sydney':'SYD', 'Auckland':'AKL',
+};
+
+// Normaliza (minúsculas + sin acentos + sin espacios extra) para que la
+// búsqueda por nombre no dependa de que coincida byte a byte con la tabla.
+const DIACRITICS_RE = new RegExp('[̀-ͯ]', 'g');
+function normalizeCity(str) {
+  return (str || '').normalize('NFD').replace(DIACRITICS_RE, '').trim().toLowerCase();
+}
+
+// Índices normalizados, construidos una sola vez al cargar el módulo.
+const CITY_IATA_NORMALIZED = Object.fromEntries(
+  Object.entries(CITY_IATA).map(([name, iata]) => [normalizeCity(name), iata])
+);
+const CITY_IATA_EN_NORMALIZED = Object.fromEntries(
+  Object.entries(CITY_IATA_EN_ALIASES).map(([name, iata]) => [normalizeCity(name), iata])
+);
 
 // Helpers
 export function getRegion(countryCode) {
   return COUNTRY_REGION[countryCode] || 'europa_oeste';
 }
-export function getCityIata(city) { return CITY_IATA[city] || ''; }
+export function getCityIata(city) {
+  if (!city) return '';
+  const key = normalizeCity(city);
+  return CITY_IATA_NORMALIZED[key] || CITY_IATA_EN_NORMALIZED[key] || '';
+}
 export function getOriginIata(countryCode) { return ORIGIN_IATA[countryCode] || ''; }
 export function getRegionData(countryCode) {
   return REGIONS[getRegion(countryCode)] || REGIONS.europa_oeste;

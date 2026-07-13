@@ -124,3 +124,17 @@ export const getCountryByCode = (code) => COUNTRIES.find(c => c.code === code);
 export const getCountryName = (code) => getCountryByCode(code)?.name || code;
 export const getCountryEmoji = (code) => getCountryByCode(code)?.emoji || "🌍";
 export const TOTAL_COUNTRIES = 195;
+
+// Fuente de verdad ÚNICA de "países visitados": unión de los viajes completados
+// (por si countries_visited no se actualizó, p.ej. un viaje viejo) y de la
+// lista guardada en el perfil (por si el viaje ya no existe pero el país
+// sigue contando). Usar SIEMPRE esta función en vez de leer
+// user.countries_visited directamente — leerlo a pelo es la razón por la que
+// el contador de Perfil y el globo de Inicio podían mostrar números distintos.
+export function getVisitedCountries(user, trips = []) {
+  const fromTrips = trips
+    .filter(t => t.status === 'completed')
+    .map(t => t.destination_country)
+    .filter(Boolean);
+  return [...new Set([...fromTrips, ...(user?.countries_visited || [])])];
+}

@@ -8,7 +8,7 @@ import InteractiveGlobe from '@/components/home/InteractiveGlobe';
 import StatsBar from '@/components/home/StatsBar';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ChevronDown, MapPin, Calendar } from 'lucide-react';
-import { getCountryEmoji, getCountryName } from '@/lib/countries';
+import { getCountryEmoji, getCountryName, getVisitedCountries } from '@/lib/countries';
 import { format } from 'date-fns';
 import { getDateLocale } from '@/lib/i18n';
 import { useT } from '@/lib/i18n';
@@ -52,13 +52,9 @@ export default function Home() {
   // Viajes completados, agrupados por país
   const completedTrips = trips.filter(t => t.status === 'completed');
 
-  // Países iluminados en el globo: derivados de los viajes COMPLETADOS (fuente de
-  // verdad) + la lista del perfil. Antes solo se usaba user.countries_visited, que
-  // el botón "Completar" no actualizaba → países completados sin iluminar.
-  const visitedCountries = [...new Set([
-    ...completedTrips.map(t => t.destination_country).filter(Boolean),
-    ...(user?.countries_visited || []),
-  ])];
+  // Misma fuente de verdad que Perfil y Recap (getVisitedCountries): unión de
+  // viajes completados + user.countries_visited, para que nunca se desincronicen.
+  const visitedCountries = getVisitedCountries(user, trips);
 
   // Años disponibles
   const years = ['todos', ...new Set(

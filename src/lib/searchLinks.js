@@ -5,7 +5,7 @@
 // personas y filtro de presupuesto ya puestos.
 import { getCityIata, getOriginIata } from './destinationData';
 import { COUNTRIES } from './countries';
-import { buildAviasalesSearchUrl, wrapAffiliate } from './affiliate';
+import { buildAviasalesSearchUrl, wrapAffiliate, wrapDirect, buildAiraloAffiliateUrl } from './affiliate';
 
 // Rango de precio POR NOCHE (habitación/alojamiento entero) según nivel de presupuesto.
 // Se usa en los filtros de Booking y Airbnb. Rangos amplios a propósito: filtrar
@@ -17,11 +17,14 @@ const NIGHTLY_BUDGET = {
   luxury:  { min: 250, max: 0 }, // sin tope
 };
 
-export function buildSearchLinks(trip) {
+export function buildSearchLinks(trip, user) {
   if (!trip) return null;
   const city = trip.destination_city || (Array.isArray(trip.destination_cities) ? trip.destination_cities[0] : '') || '';
   const destCode = trip.destination_country;
-  const originCode = trip.origin_country;
+  // Fallback al país de origen del perfil: algunos viajes (p.ej. "Destino
+  // sorpresa" o viajes antiguos) nunca guardaron origin_country, y sin él
+  // ningún enlace de vuelo puede prellenar fecha+origen+destino+pasajeros.
+  const originCode = trip.origin_country || user?.country_of_origin;
   const start = trip.start_date || '';
   const end = trip.end_date || '';
   const travelers = Number(trip.travelers_count) || 1;
@@ -31,20 +34,30 @@ export function buildSearchLinks(trip) {
   const destName = COUNTRIES.find(c => c.code === destCode)?.name || destCode || '';
   const originName = COUNTRIES.find(c => c.code === originCode)?.name || originCode || '';
   const oIata = getOriginIata(originCode);
-  const dIata = getCityIata(city);
+  // CITY_IATA solo cubre ~120 ciudades turísticas curadas — para el resto de
+  // países seleccionables (Armenia, Baréin...) cae al aeropuerto principal del
+  // país (ORIGIN_IATA, que ya cubre los 119 países) en vez de dejarlo vacío.
+  const dIata = getCityIata(city) || getOriginIata(destCode);
 
   // ── Vuelos ──
   const toSky = (d) => (d ? d.slice(2).replaceAll('-', '') : ''); // 2026-09-10 → 260910
+  // Slug seguro para segmentos de URL en crudo (sin encodeURIComponent): sin
+  // acentos, espacios como guiones — "Ciudad de México" sin esto rompía el
+  // fallback (Skyscanner no abría directamente la página, url inválida).
+  const slugify = (s) => (s || '')
+    .normalize('NFD').replace(new RegExp('[̀-ͯ]', 'g'), '')
+    .toLowerCase().trim().replace(/\s+/g, '-');
   // OJO: skyscanner.es traduce las rutas — /transport/flights/ da "página no
   // encontrada"; la ruta válida en el dominio español es /transporte/vuelos/.
   const skyscanner = (oIata && dIata && start && end)
     ? `https://www.skyscanner.es/transporte/vuelos/${oIata.toLowerCase()}/${dIata.toLowerCase()}/${toSky(start)}/${toSky(end)}/?adults=${travelers}&currency=EUR`
-    : `https://www.skyscanner.es/transporte/vuelos-a/${(dIata || city || destName).toLowerCase()}/`;
+    : `https://www.skyscanner.es/transporte/vuelos-a/${slugify(dIata || city || destName)}/`;
   // Kiwi sí acepta pasajeros por URL con `adults` (verificado: muestra "2 Pasajeros").
-  const kiwi = (oIata && dIata)
+  // Lleva tracking de afiliado (wrapDirect) → genera comisión por reserva.
+  const kiwi = wrapDirect((oIata && dIata)
     ? `https://www.kiwi.com/deep?from=${oIata.toUpperCase()}&to=${dIata.toUpperCase()}` +
       (start ? `&departure=${start}` : '') + (end ? `&return=${end}` : '') + `&adults=${travelers}`
-    : `https://www.kiwi.com/es/`;
+    : `https://www.kiwi.com/es/`, 'kiwi');
   // Google Flights parsea mejor la query en inglés con códigos IATA que en lenguaje natural español.
   const google = (oIata && dIata)
     ? `https://www.google.com/travel/flights?q=${encodeURIComponent(
@@ -73,19 +86,21 @@ export function buildSearchLinks(trip) {
     (start ? `&startDate=${start}` : '') + (end ? `&endDate=${end}` : '') + `&adults=${travelers}`;
 
   // ── Extras ──
-  // Cada extra pasa por wrapAffiliate: en cuanto su programa tenga ids en
-  // TP_PROGRAMS (lib/affiliate.js), el clic genera comisión automáticamente.
-  const airaloSlug = destName.toLowerCase().trim().replace(/\s+/g, '-');
+  // actividades/esim/traslados/coches llevan tracking de afiliado YA ACTIVO
+  // (enlaces "Ready-made by brands" verificados en vivo, 2026-07-13). transporte
+  // y seguro siguen directos: Omio y Heymondo no están aprobados en Travelpayouts
+  // todavía (Heymondo directamente no está en su catálogo).
+  const airaloSlug = slugify(destName);
   const extras = {
-    actividades: { url: wrapAffiliate(`https://www.getyourguide.com/s/?q=${encodeURIComponent(city || destName)}`, 'getyourguide'), marca: 'GetYourGuide', prellenado: true,
+    actividades: { url: wrapDirect(`https://www.klook.com/search/?query=${encodeURIComponent(city || destName)}`, 'klook'), marca: 'Klook', prellenado: true,
       desc: `Tours, entradas y experiencias en ${city || destName}, con cancelación gratuita.` },
-    esim: { url: wrapAffiliate(airaloSlug ? `https://www.airalo.com/${airaloSlug}-esim` : 'https://www.airalo.com/', 'airalo'), marca: 'Airalo', prellenado: !!airaloSlug,
+    esim: { url: buildAiraloAffiliateUrl(airaloSlug ? `https://www.airalo.com/${airaloSlug}-esim` : 'https://www.airalo.com/'), marca: 'Airalo', prellenado: !!airaloSlug,
       desc: `Datos móviles desde que aterrizas, sin cambiar de tarjeta${destName ? ` (${destName})` : ''}.` },
-    coches: { url: wrapAffiliate('https://www.discovercars.com/', 'discovercars'), marca: 'DiscoverCars', prellenado: false,
+    coches: { url: wrapDirect('https://www.autoeurope.eu/', 'autoeurope'), marca: 'AutoEurope', prellenado: false,
       desc: 'Compara alquiler de coche con cancelación gratis.' },
-    traslados: { url: wrapAffiliate('https://www.welcomepickups.com/', 'welcomepickups'), marca: 'Welcome Pickups', prellenado: false,
-      desc: 'Traslado del aeropuerto al hotel con conductor que te espera.' },
-    transporte: { url: wrapAffiliate('https://www.omio.com/', 'omio'), marca: 'Omio', prellenado: false,
+    traslados: { url: wrapDirect('https://traveler.welcomepickups.com/en/sightseeing_rides/cities/', 'welcomepickups'), marca: 'Welcome Pickups', prellenado: false,
+      desc: 'Traslados y rutas turísticas con conductor privado que te espera.' },
+    transporte: { url: 'https://www.omio.com/', marca: 'Omio', prellenado: false,
       desc: 'Trenes, buses y ferris entre ciudades, comparados en un sitio.' },
     seguro: { url: 'https://www.heymondo.com/', marca: 'Heymondo', prellenado: false,
       desc: 'Seguro de viaje con cobertura médica y cancelación.' },

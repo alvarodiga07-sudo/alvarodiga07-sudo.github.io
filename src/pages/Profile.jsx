@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import MiniWorldMap from '@/components/profile/MiniWorldMap';
 import CreatePostModal from '@/components/profile/CreatePostModal';
+import { getVisitedCountries } from '@/lib/countries';
 
 export default function Profile() {
   const { t } = useT();
@@ -65,15 +66,20 @@ export default function Profile() {
     !searchQuery || p.caption?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Unión de viajes completados + user.countries_visited — misma fuente de
+  // verdad que Inicio, así el contador y el mapa nunca se desincronizan.
+  const visitedCountries = getVisitedCountries(user, trips);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <ProfileHeader
         user={user}
+        visitedCountries={visitedCountries}
         followersCount={followers.length}
         followingCount={following.length}
       />
 
-      <MiniWorldMap visitedCountries={user?.countries_visited || []} trips={trips} />
+      <MiniWorldMap visitedCountries={visitedCountries} trips={trips} />
 
       <div className="px-5 mt-4 flex gap-2">
         <div className="relative flex-1">

@@ -6,12 +6,12 @@ import { motion } from 'framer-motion';
 import { ComposableMap, Geographies, Geography, Line, Marker } from 'react-simple-maps';
 import { ArrowLeft, Share2, Sparkles, Globe, Plane, Map, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getCountryEmoji, getCountryName, COUNTRIES } from '@/lib/countries';
+import { getCountryEmoji, getCountryName, COUNTRIES, getVisitedCountries } from '@/lib/countries';
 import { N2A, CENTROIDS } from '@/lib/mapData';
 import { useT } from '@/lib/i18n';
 import { generateShareCard, shareOrDownload } from '@/lib/shareCard';
 import { toast } from 'sonner';
-import GEO_URL from 'world-atlas/countries-110m.json?url';
+import GEO_URL from 'world-atlas/countries-50m.json?url';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -36,7 +36,7 @@ export default function AnnualRecap() {
     queryFn: () => base44.entities.PassportStamp.list('visit_date'),
   });
 
-  const visitedCountries = user?.countries_visited || [];
+  const visitedCountries = getVisitedCountries(user, trips);
 
   // Build sorted trip list for routes
   const sortedTrips = [...trips].sort((a, b) =>

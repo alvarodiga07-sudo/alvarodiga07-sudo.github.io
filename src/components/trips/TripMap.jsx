@@ -2,8 +2,7 @@ import React from 'react';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { getCountryName } from '@/lib/countries';
 import { N2A, CENTROIDS } from '@/lib/mapData';
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+import GEO_URL from 'world-atlas/countries-50m.json?url';
 
 const CAPITALS = {
   AF:[69.18,34.52],AL:[19.82,41.33],DZ:[3.05,36.74],AO:[13.22,-8.84],AR:[-58.38,-34.61],
@@ -25,7 +24,7 @@ const CAPITALS = {
   VN:[105.85,21.03],SD:[32.53,15.56],ZM:[28.29,-15.42],ZW:[31.05,-17.82],
   SG:[103.85,1.29],MN:[106.9,47.9],OM:[58.6,23.6],QA:[51.5,25.3],KP:[125.7,39.0],
   TM:[58.4,37.9],UZ:[69.3,41.3],TJ:[68.8,38.6],KG:[74.6,42.9],GE:[44.8,41.7],
-  AM:[44.5,40.2],AZ:[49.9,40.4],BY:[27.6,53.9],MD:[28.9,47.0],RS:[20.5,44.8],
+  AM:[44.5,40.2],AZ:[49.9,40.4],BY:[27.6,53.9],MD:[28.9,47.0],
 };
 
 export default function TripMap({ countryCode, cityName }) {

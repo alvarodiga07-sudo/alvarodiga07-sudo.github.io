@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
 import { generateShareCard, shareOrDownload } from '@/lib/shareCard';
 
-export default function ProfileHeader({ user, followersCount = 0, followingCount = 0 }) {
+export default function ProfileHeader({ user, visitedCountries, followersCount = 0, followingCount = 0 }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
@@ -68,7 +68,7 @@ export default function ProfileHeader({ user, followersCount = 0, followingCount
     setEditMode(false);
   };
   const initials = (user?.display_name || user?.full_name || 'U').slice(0, 2).toUpperCase();
-  const visitedCount = user?.countries_visited?.length || 0;
+  const visitedCount = visitedCountries?.length ?? (user?.countries_visited?.length || 0);
 
   const handleShare = async () => {
     setSharing(true);

@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ComposableMap, Geographies, Geography, Sphere, Graticule, Marker } from 'react-simple-maps';
 import { geoOrthographic } from 'd3-geo';
 
-// Mapa mundial empaquetado con la app (108KB): carga instantánea y sin depender
-// de un CDN externo (antes, si jsdelivr fallaba, el globo quedaba en blanco).
-import GEO_URL from 'world-atlas/countries-110m.json?url';
+// Mapa mundial empaquetado con la app: carga instantánea y sin depender de un
+// CDN externo (antes, si jsdelivr fallaba, el globo quedaba en blanco).
+// 50m (no 110m): el 110m simplifica tanto el mapa que omite países pequeños
+// por completo (Malta, Singapur, Baréin, Barbados, Maldivas, Andorra, Antigua
+// y Barbuda no existen como forma dibujable ahí, con o sin código correcto —
+// por eso nunca se iluminaban aunque el código numérico→alpha2 estuviera bien).
+import GEO_URL from 'world-atlas/countries-50m.json?url';
 
 const N2A = {
   "004":"AF","008":"AL","012":"DZ","020":"AD","024":"AO","028":"AG","032":"AR",
