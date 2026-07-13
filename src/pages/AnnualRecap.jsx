@@ -4,18 +4,22 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ComposableMap, Geographies, Geography, Line, Marker } from 'react-simple-maps';
-import { ArrowLeft, Share2, Sparkles, Globe, Plane, Map } from 'lucide-react';
+import { ArrowLeft, Share2, Sparkles, Globe, Plane, Map, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCountryEmoji, getCountryName, COUNTRIES } from '@/lib/countries';
 import { N2A, CENTROIDS } from '@/lib/mapData';
-
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+import { useT } from '@/lib/i18n';
+import { generateShareCard, shareOrDownload } from '@/lib/shareCard';
+import { toast } from 'sonner';
+import GEO_URL from 'world-atlas/countries-110m.json?url';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function AnnualRecap() {
   const navigate = useNavigate();
+  const { t } = useT();
   const [animStep, setAnimStep] = useState(0);
+  const [sharing, setSharing] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -72,7 +76,31 @@ export default function AnnualRecap() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  const displayName = user?.display_name || user?.full_name || 'Viajero';
+  const displayName = user?.display_name || user?.full_name || t('Viajero');
+
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      const blob = await generateShareCard({
+        emoji: visitedCountries.length > 0 ? getCountryEmoji(visitedCountries[visitedCountries.length - 1]) : '🌍',
+        title: `${displayName} · ${CURRENT_YEAR}`,
+        subtitle: t('Resumen del año viajero'),
+        stats: [
+          { label: t('Países'), value: String(visitedCountries.length) },
+          { label: t('Continentes'), value: String(continents.size) },
+          { label: t('Viajes'), value: String(trips.length) },
+        ],
+      });
+      const result = await shareOrDownload(blob, `waddle-resumen-${CURRENT_YEAR}.png`, {
+        title: 'Waddle', text: t('Mira mi resumen viajero del año en Waddle'),
+      });
+      if (result === 'downloaded') toast.success(t('Imagen descargada'));
+    } catch (e) {
+      console.error(e);
+      toast.error(t('No se pudo generar la imagen'));
+    }
+    setSharing(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,9 +109,9 @@ export default function AnnualRecap() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-bold text-foreground">Resumen {CURRENT_YEAR}</h1>
-        <Button variant="ghost" size="icon" className="rounded-full">
-          <Share2 className="w-5 h-5" />
+        <h1 className="text-lg font-bold text-foreground">{t('Resumen')} {CURRENT_YEAR}</h1>
+        <Button variant="ghost" size="icon" onClick={handleShare} disabled={sharing} className="rounded-full">
+          {sharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
         </Button>
       </div>
 
@@ -95,12 +123,12 @@ export default function AnnualRecap() {
       >
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-widest">Tu año viajero</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-widest">{t('Tu año viajero')}</span>
         </div>
         <h2 className="text-2xl font-bold text-foreground">
           {visitedCountries.length > 0
-            ? `¡${visitedCountries.length} país${visitedCountries.length > 1 ? 'es' : ''} conquistado${visitedCountries.length > 1 ? 's' : ''}!`
-            : '¡Empieza a explorar el mundo!'}
+            ? `¡${visitedCountries.length} ${t(visitedCountries.length > 1 ? 'países conquistados' : 'país conquistado')}!`
+            : t('¡Empieza a explorar el mundo!')}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">{displayName} · {CURRENT_YEAR}</p>
       </motion.div>
@@ -108,7 +136,7 @@ export default function AnnualRecap() {
       {/* World map */}
       <div className="mx-5 bg-card rounded-2xl border border-border overflow-hidden mb-4">
         <div className="px-4 pt-3 pb-1">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tu mapa mundial</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('Tu mapa mundial')}</span>
         </div>
         <div className="relative">
           <ComposableMap
@@ -197,17 +225,17 @@ export default function AnnualRecap() {
         <StatCard
           icon={<Globe className="w-5 h-5 text-primary" />}
           value={visitedCountries.length}
-          label="Países"
+          label={t('Países')}
         />
         <StatCard
           icon={<Map className="w-5 h-5 text-primary" />}
           value={continents.size}
-          label="Continentes"
+          label={t('Continentes')}
         />
         <StatCard
           icon={<Plane className="w-5 h-5 text-primary" />}
           value={trips.length}
-          label="Viajes"
+          label={t('Viajes')}
         />
       </motion.div>
 
@@ -218,7 +246,7 @@ export default function AnnualRecap() {
           animate={animStep >= 3 ? { opacity: 1 } : {}}
           className="mx-5 bg-card rounded-2xl border border-border p-4 mb-4"
         >
-          <h3 className="text-sm font-semibold text-foreground mb-3">Países visitados</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t('Países visitados')}</h3>
           <div className="flex flex-wrap gap-2">
             {visitedCountries.map(code => (
               <span
@@ -240,7 +268,7 @@ export default function AnnualRecap() {
           animate={animStep >= 3 ? { opacity: 1 } : {}}
           className="mx-5 bg-card rounded-2xl border border-border p-4 mb-24"
         >
-          <h3 className="text-sm font-semibold text-foreground mb-3">Sellos del pasaporte</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t('Sellos del pasaporte')}</h3>
           <div className="flex gap-2 flex-wrap">
             {stamps.map(s => (
               <span key={s.id} className="text-2xl" title={s.country_name}>
@@ -254,11 +282,11 @@ export default function AnnualRecap() {
       {visitedCountries.length === 0 && (
         <div className="mx-5 bg-card rounded-2xl border border-border p-8 text-center mb-24">
           <Plane className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-foreground mb-1">Aún no hay viajes registrados</p>
-          <p className="text-xs text-muted-foreground mb-4">Empieza a añadir viajes para ver tu resumen anual</p>
+          <p className="text-sm font-semibold text-foreground mb-1">{t('Aún no hay viajes registrados')}</p>
+          <p className="text-xs text-muted-foreground mb-4">{t('Empieza a añadir viajes para ver tu resumen anual')}</p>
           <Button onClick={() => navigate('/trips')} className="rounded-xl">
             <Plane className="w-4 h-4 mr-2" />
-            Añadir viaje
+            {t('Añadir viaje')}
           </Button>
         </div>
       )}

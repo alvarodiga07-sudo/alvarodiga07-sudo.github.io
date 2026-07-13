@@ -22,10 +22,13 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AnnualRecap from './pages/AnnualRecap';
 import SocialFeed from './pages/SocialFeed';
+import PeopleSearch from './pages/PeopleSearch';
+import UserProfile from './pages/UserProfile';
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
 import { LanguageProvider } from './lib/i18n';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const LOGO_URL = "/brand/logo.png";
 
@@ -90,6 +93,8 @@ const AuthenticatedApp = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/recap" element={<AnnualRecap />} />
+        <Route path="/search" element={<PeopleSearch />} />
+        <Route path="/u/:username" element={<UserProfile />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
@@ -98,6 +103,7 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <LanguageProvider>
@@ -109,6 +115,7 @@ function App() {
       </QueryClientProvider>
         <SonnerToaster position="bottom-center" richColors />
     </AuthProvider>
+    </ErrorBoundary>
   )
 }
 

@@ -137,6 +137,27 @@ const profilesEntity = {
     if (error) throw error;
     return flattenProfile(data);
   },
+  // Búsqueda de personas por username o nombre (case-insensitive, parcial).
+  // Dos queries con .ilike() en vez de un .or() con string interpolado: así
+  // una coma o paréntesis en lo que escriba el usuario no puede colarse en
+  // el DSL de filtros de PostgREST.
+  search: async (query, { excludeId, limit = 20 } = {}) => {
+    const q = (query || '').trim().replace(/[%_]/g, '');
+    if (!q) return [];
+    const pattern = `%${q}%`;
+    const [byUsername, byName] = await Promise.all([
+      supabase.from('profiles').select('*').ilike('username', pattern).limit(limit),
+      supabase.from('profiles').select('*').ilike('full_name', pattern).limit(limit),
+    ]);
+    if (byUsername.error) throw byUsername.error;
+    if (byName.error) throw byName.error;
+    const merged = new Map();
+    for (const row of [...(byUsername.data || []), ...(byName.data || [])]) {
+      if (excludeId && row.id === excludeId) continue;
+      merged.set(row.id, flattenProfile(row));
+    }
+    return [...merged.values()].slice(0, limit);
+  },
   update: async (id, fields) => {
     const { data: cur } = await supabase.from('profiles').select('data').eq('id', id).single();
     const { cols, extra } = splitProfileFields(fields);

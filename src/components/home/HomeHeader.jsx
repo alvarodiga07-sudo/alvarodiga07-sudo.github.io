@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { Bell, Settings } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useT } from '@/lib/i18n';
 
 const LOGO_URL = "/brand/logo.png";
 
 export default function HomeHeader({ user, notificationCount = 0 }) {
+  const { t } = useT();
   const initials = (user?.display_name || user?.full_name || 'U').slice(0, 2).toUpperCase();
 
   return (
@@ -15,7 +17,7 @@ export default function HomeHeader({ user, notificationCount = 0 }) {
         <img src={LOGO_URL} alt="Waddle" className="w-9 h-9 rounded-full object-cover" />
         <div>
           <h1 className="text-lg font-bold text-foreground tracking-tight">Waddle</h1>
-          <p className="text-[11px] text-muted-foreground -mt-0.5">Explore the world</p>
+          <p className="text-[11px] text-muted-foreground -mt-0.5">{t('Explora el mundo')}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

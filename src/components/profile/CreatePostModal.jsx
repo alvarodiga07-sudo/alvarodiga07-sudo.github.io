@@ -43,6 +43,7 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
   const handleSave = async () => {
     if (!images.length && !caption) return;
     setSaving(true);
+    const me = await base44.auth.me();
     await base44.entities.Post.create({
       caption,
       images,
@@ -50,6 +51,8 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
       country_code: countryCode || undefined,
       trip_id: tripId || undefined,
       is_highlighted: false,
+      visibility: 'public',
+      created_by: me?.email,
     });
     queryClient.invalidateQueries({ queryKey: ['myPosts'] });
     toast.success('Publicación creada');

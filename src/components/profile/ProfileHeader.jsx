@@ -10,12 +10,14 @@ import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
+import { generateShareCard, shareOrDownload } from '@/lib/shareCard';
 
 export default function ProfileHeader({ user, followersCount = 0, followingCount = 0 }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [form, setForm] = useState({ display_name: user?.display_name || user?.full_name || '', bio: user?.bio || '' });
 
   const handleAvatarUpload = async (e) => {
@@ -67,6 +69,31 @@ export default function ProfileHeader({ user, followersCount = 0, followingCount
   };
   const initials = (user?.display_name || user?.full_name || 'U').slice(0, 2).toUpperCase();
   const visitedCount = user?.countries_visited?.length || 0;
+
+  const handleShare = async () => {
+    setSharing(true);
+    try {
+      const name = user?.display_name || user?.full_name || 'Viajero';
+      const blob = await generateShareCard({
+        emoji: getCountryEmoji(user?.country_of_origin) || '🌍',
+        title: name,
+        subtitle: t('Mi progreso en Waddle'),
+        stats: [
+          { label: t('Países'), value: String(visitedCount) },
+          { label: t('Seguidores'), value: String(followersCount) },
+          { label: t('Siguiendo'), value: String(followingCount) },
+        ],
+      });
+      const result = await shareOrDownload(blob, `waddle-${(user?.username || 'perfil')}.png`, {
+        title: 'Waddle', text: t('Mira mi progreso viajero en Waddle'),
+      });
+      if (result === 'downloaded') toast.success(t('Imagen descargada'));
+    } catch (e) {
+      console.error(e);
+      toast.error(t('No se pudo generar la imagen'));
+    }
+    setSharing(false);
+  };
 
   return (
     <div className="px-5 pt-5">
@@ -160,8 +187,8 @@ export default function ProfileHeader({ user, followersCount = 0, followingCount
             <Button onClick={() => setEditMode(true)} variant="outline" className="flex-1 h-9 rounded-xl text-xs font-semibold gap-1">
               <Edit2 className="w-4 h-4" /> {t('Editar perfil')}
             </Button>
-            <Button variant="outline" className="h-9 rounded-xl text-xs font-semibold px-4">
-              {t('Compartir')}
+            <Button variant="outline" onClick={handleShare} disabled={sharing} className="h-9 rounded-xl text-xs font-semibold px-4">
+              {sharing ? t('Generando...') : t('Compartir')}
             </Button>
           </>
         )}

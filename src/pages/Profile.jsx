@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Grid3X3, Bookmark, Film, Search, Plus, Lock, Play } from 'lucide-react';
+import { Grid3X3, Bookmark, Film, Search, Plus, Lock, Play, UserSearch } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -79,12 +79,20 @@ export default function Profile() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar publicaciones..."
+            placeholder={t('Buscar publicaciones...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 rounded-xl"
           />
         </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/search')}
+          className="h-10 w-10 rounded-xl p-0 flex-shrink-0"
+          title={t('Buscar personas')}
+        >
+          <UserSearch className="w-5 h-5" />
+        </Button>
         <Button
           onClick={() => setShowCreatePost(true)}
           className="h-10 w-10 rounded-xl p-0 flex-shrink-0"

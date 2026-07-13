@@ -12,6 +12,7 @@ import { getCountryEmoji, getCountryName } from '@/lib/countries';
 import { format } from 'date-fns';
 import { getDateLocale } from '@/lib/i18n';
 import { useT } from '@/lib/i18n';
+import { computeLocalNotifications } from '@/lib/notifications';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -43,6 +44,8 @@ export default function Home() {
     queryKey: ['trips'],
     queryFn: () => base44.entities.Trip.list('-created_date'),
   });
+
+  const notificationCount = computeLocalNotifications(trips, t).filter(n => !n.is_read).length;
 
   const [yearFilter, setYearFilter] = useState('todos');
 
@@ -81,7 +84,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <HomeHeader user={user} />
+      <HomeHeader user={user} notificationCount={notificationCount} />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

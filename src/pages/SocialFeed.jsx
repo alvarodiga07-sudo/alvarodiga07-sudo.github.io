@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, MessageCircle, Send, Share2, MapPin, ArrowLeft,
-  Plus, Volume2, VolumeX, User, Bookmark
+  Plus, Volume2, VolumeX, User, Bookmark, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +63,9 @@ export default function SocialFeed() {
   if (posts.length === 0) {
     return (
       <div className="fixed inset-0 bg-gradient-to-b from-black to-zinc-900 flex flex-col items-center justify-center text-white p-6">
+        <button onClick={() => navigate('/search')} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
+          <Search className="w-5 h-5" />
+        </button>
         <div className="text-5xl mb-4">🌍</div>
         <h2 className="text-xl font-bold mb-2">Aún no hay contenido</h2>
         <p className="text-sm text-zinc-400 text-center mb-6">
@@ -90,9 +93,14 @@ export default function SocialFeed() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-white text-base font-bold">✈️ Para ti</h1>
-        <button onClick={() => setMuted(!muted)} className="w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white">
-          {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/search')} className="w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white">
+            <Search className="w-5 h-5" />
+          </button>
+          <button onClick={() => setMuted(!muted)} className="w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white">
+            {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {posts.map((post, idx) => (
