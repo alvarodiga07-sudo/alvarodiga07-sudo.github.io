@@ -168,6 +168,40 @@ drop policy if exists "uploads_auth_update" on storage.objects;
 create policy "uploads_auth_update" on storage.objects for update
   using (bucket_id = 'uploads' and auth.role() = 'authenticated');
 
+-- ---------- SHARED_TRIPS (enlace de "Compartir viaje") ----------
+-- Antes el viaje entero viajaba comprimido en la URL (podía superar 20.000
+-- caracteres) y apps como WhatsApp/Mensajes lo truncaban o rompían al pegarlo,
+-- dando "enlace no válido". Ahora se guarda aquí y el enlace solo lleva el id
+-- (corto), que cualquiera puede leer sin necesidad de sesión.
+create table if not exists public.shared_trips (
+  id uuid primary key default gen_random_uuid(),
+  created_date timestamptz default now(),
+  body jsonb not null default '{}'::jsonb
+);
+alter table public.shared_trips enable row level security;
+drop policy if exists "shared_trips_public_read" on public.shared_trips;
+create policy "shared_trips_public_read" on public.shared_trips for select using (true);
+drop policy if exists "shared_trips_auth_insert" on public.shared_trips;
+create policy "shared_trips_auth_insert" on public.shared_trips for insert
+  with check (auth.role() = 'authenticated');
+
+-- ---------- BILLING (freemium: 1 viaje gratis/mes, luego pago o suscripción) ----------
+-- Solo las Edge Functions (con la service role key, que salta RLS) pueden escribir
+-- aquí: ni insert ni update están permitidos para 'authenticated'. Así ningún
+-- usuario puede darse a sí mismo una suscripción o créditos falsos desde el cliente.
+create table if not exists public.billing (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  subscription_status text not null default 'none', -- 'none' | 'active' | 'canceled' | 'past_due'
+  current_period_end timestamptz,
+  extra_trip_credits int not null default 0,
+  updated_at timestamptz default now()
+);
+alter table public.billing enable row level security;
+drop policy if exists "billing_owner_read" on public.billing;
+create policy "billing_owner_read" on public.billing for select using (auth.uid() = user_id);
+
 -- ============================================================
 --  FIN. Si todo sale en verde, la base de datos está lista.
 -- ============================================================

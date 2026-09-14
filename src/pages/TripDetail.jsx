@@ -1391,15 +1391,18 @@ function ExpenseTracker({ trip, tripId, queryClient }) {
 function ShareSheet({ trip, onClose }) {
   const { t } = useT();
   const share = async (permission) => {
-    const url = buildShareUrl(trip, permission);
     try {
+      const url = await buildShareUrl(trip, permission);
       if (navigator.share) {
         await navigator.share({ title: trip.title || t('Mi viaje en Waddle'), url });
       } else {
         await navigator.clipboard.writeText(url);
         toast.success(t('Enlace copiado'));
       }
-    } catch {}
+    } catch (e) {
+      console.error(e);
+      toast.error(t('No se pudo generar el enlace'));
+    }
     onClose();
   };
 

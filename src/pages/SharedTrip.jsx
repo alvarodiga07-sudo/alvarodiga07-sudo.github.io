@@ -1,15 +1,15 @@
-// Vista de un viaje compartido por enlace (#6). Sin backend: el viaje entero
-// viaja comprimido dentro de la URL (ver src/lib/shareTrip.js) — quien abre el
+// Vista de un viaje compartido por enlace (#6). El viaje vive en la tabla
+// "shared_trips" (lectura pública, ver src/lib/shareTrip.js) — quien abre el
 // enlace ve un snapshot de solo lectura y, si quiere, se guarda SU PROPIA copia
 // editable en su planificador (no hay edición colaborativa en tiempo real).
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MapPin, Clock, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { getCountryEmoji, getCountryName } from '@/lib/countries';
-import { decodeSharedTrip } from '@/lib/shareTrip';
+import { fetchSharedTrip } from '@/lib/shareTrip';
 import { AIItinerary } from './TripDetail';
 import { useT } from '@/lib/i18n';
 import { toast } from 'sonner';
@@ -22,7 +22,19 @@ export default function SharedTrip() {
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
-  const trip = React.useMemo(() => decodeSharedTrip(encoded), [encoded]);
+  const { data: trip, isLoading } = useQuery({
+    queryKey: ['shared-trip', encoded],
+    queryFn: () => fetchSharedTrip(encoded),
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
