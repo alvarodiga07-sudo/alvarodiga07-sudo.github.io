@@ -57,11 +57,14 @@ export default function Trips() {
         title: tripData.title,
         destination_country: tripData.destination_country,
         destination_cities: tripData.destination_cities,
+        origin_country: tripData.origin_country,
+        start_date: tripData.start_date,
+        end_date: tripData.end_date,
         trip_type: tripData.trip_type,
         duration_days: tripData.duration_days,
         travelers_count: tripData.travelers_count,
         status: 'planning',
-        itinerary: tripData.itinerary,
+        ai_itinerary: tripData.ai_itinerary,
       });
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       toast.success(`Viaje a ${tripData.title} creado`);

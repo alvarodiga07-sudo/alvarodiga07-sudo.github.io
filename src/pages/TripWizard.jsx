@@ -476,7 +476,7 @@ export default function TripWizard() {
 
       if (countryData) {
         await base44.entities.PassportStamp.create({
-          country_code: form.destination_country, country_name: countryData.name,
+          country_code: destinationCountry, country_name: countryData.name,
           trip_id: trip.id, visit_date: form.start_date || new Date().toISOString().split('T')[0],
         });
         // NOTA: aquí NO se añade a countries_visited — el viaje nace en estado

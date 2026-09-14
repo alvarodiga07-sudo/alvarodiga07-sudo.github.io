@@ -23,6 +23,20 @@ export default function SuggestedTripModal({ destination, isOpen, onClose, onCre
     navigate(`/trip-wizard?mode=custom&${params.toString()}`);
   };
 
+  // Fecha de salida realista (dentro de 30 días) — antes era un literal fijo
+  // ("2026-07-15") que solo servía para el texto del itinerario y nunca llegaba
+  // al viaje creado, así que Booking/Skyscanner/etc. se abrían sin fechas.
+  const startDate = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  }, []);
+  const endDate = React.useMemo(() => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + (destination?.days || 5) - 1);
+    return d.toISOString().split('T')[0];
+  }, [startDate, destination?.days]);
+
   useEffect(() => {
     if (isOpen && destination) {
       setLoading(true);
@@ -34,8 +48,8 @@ export default function SuggestedTripModal({ destination, isOpen, onClose, onCre
           _destCountryName: destination.city,
           _originCountryName: 'España',
           duration_days: destination.days || 5,
-          start_date: '2026-07-15',
-          end_date: new Date(new Date('2026-07-15').getTime() + (destination.days || 5) * 86400000).toISOString().split('T')[0],
+          start_date: startDate,
+          end_date: endDate,
           trip_type: destination.type || 'leisure',
           travelers_count: 2,
           preferences: {
@@ -58,10 +72,13 @@ export default function SuggestedTripModal({ destination, isOpen, onClose, onCre
         title: destination.title,
         destination_country: destination.country,
         destination_cities: [destination.city],
+        origin_country: 'ES',
+        start_date: startDate,
+        end_date: endDate,
         trip_type: destination.type || 'leisure',
         duration_days: destination.days || 5,
         travelers_count: 2,
-        itinerary,
+        ai_itinerary: itinerary,
       });
       onClose();
     }

@@ -1549,16 +1549,20 @@ export default function TripDetail() {
     // o creados por otras vías pueden no tenerlo — sin sello, el pasaporte no lo muestra).
     try {
       const existing = await base44.entities.PassportStamp.filter({ trip_id: tripId });
-      if (!existing || existing.length === 0) {
-        const countryData = COUNTRIES.find(c => c.code === trip?.destination_country);
-        if (countryData) {
-          await base44.entities.PassportStamp.create({
-            country_code: trip.destination_country,
-            country_name: countryData.name,
-            trip_id: tripId,
-            visit_date: trip.start_date || new Date().toISOString().split('T')[0],
-          });
+      const countryData = COUNTRIES.find(c => c.code === trip?.destination_country);
+      const validStamp = existing?.find(s => s.country_code === trip?.destination_country);
+      if (!validStamp && countryData) {
+        // Corrige sellos rotos (p. ej. viajes "Destino sorpresa" creados con un
+        // bug que guardaba country_code vacío) además de crear el que falte.
+        for (const bad of existing || []) {
+          await base44.entities.PassportStamp.delete(bad.id);
         }
+        await base44.entities.PassportStamp.create({
+          country_code: trip.destination_country,
+          country_name: countryData.name,
+          trip_id: tripId,
+          visit_date: trip.start_date || new Date().toISOString().split('T')[0],
+        });
       }
     } catch (e) {
       console.warn('No se pudo asegurar el sello del pasaporte:', e);
