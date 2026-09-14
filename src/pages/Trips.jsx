@@ -75,14 +75,16 @@ export default function Trips() {
   const [destPhotos, setDestPhotos] = React.useState({});
   React.useEffect(() => {
     let cancelled = false;
-    SUGGESTED_DESTINATIONS.forEach(async (dest) => {
-      const key = dest.wikiQuery;
-      if (destPhotos[key] !== undefined) return;
-      const url = await fetchDestinationPhoto(key);
-      if (!cancelled) setDestPhotos(prev => ({ ...prev, [key]: url }));
-    });
+    (async () => {
+      // Secuencial (no Promise.all): fetchDestinationPhoto lee-modifica-escribe
+      // el mismo localStorage, y en paralelo unas peticiones se pisaban a otras.
+      for (const dest of SUGGESTED_DESTINATIONS) {
+        if (cancelled) return;
+        const url = await fetchDestinationPhoto(dest.wikiQuery);
+        if (!cancelled) setDestPhotos(prev => ({ ...prev, [dest.wikiQuery]: url }));
+      }
+    })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateSuggestedTrip = async (tripData) => {

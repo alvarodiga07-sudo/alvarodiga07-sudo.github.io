@@ -25,12 +25,13 @@ export async function fetchDestinationPhoto(query) {
     });
     if (!res.ok) throw new Error('sin resumen');
     const data = await res.json();
+    // La miniatura por defecto (~300-330px) ya sobra para la tarjeta pequeña
+    // donde se usa; reescribir la URL pidiendo un ancho mayor rompía la imagen
+    // en algunos artículos (probado en vivo: 404 en el redimensionado a 640px).
     const url = data?.thumbnail?.source || null;
-    // Pide una versión más grande que la miniatura por defecto (~320px) recortando el tamaño en la URL.
-    const bigUrl = url ? url.replace(/\/\d+px-/, '/640px-') : null;
-    cache[key] = { url: bigUrl, t: Date.now() };
+    cache[key] = { url, t: Date.now() };
     writeCache(cache);
-    return bigUrl;
+    return url;
   } catch {
     cache[key] = { url: null, t: Date.now() };
     writeCache(cache);
