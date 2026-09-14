@@ -6,8 +6,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, MessageCircle, Send, Share2, MapPin, ArrowLeft,
-  Plus, Volume2, VolumeX, User, Bookmark, Search
+  Plus, Volume2, VolumeX, User, Bookmark, Search, Plane
 } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -128,9 +129,11 @@ export default function SocialFeed() {
 // ─── Item del feed (foto/video a pantalla completa) ───
 function FeedItem({ post, active, muted, currentUser, onCommentsClick, queryClient }) {
   const navigate = useNavigate();
+  const { t } = useT();
   const [liked, setLiked] = useState(post.liked_by?.includes(currentUser?.email) || false);
   const [likeCount, setLikeCount] = useState(post.likes_count || 0);
   const [slideIdx, setSlideIdx] = useState(0);
+  const [cloning, setCloning] = useState(false);
 
   // Slideshow automático si es video_slideshow
   useEffect(() => {
@@ -215,6 +218,35 @@ function FeedItem({ post, active, muted, currentUser, onCommentsClick, queryClie
       }
     } catch (e) {}
   };
+
+  const handleCloneTrip = async () => {
+    if (cloning) return;
+    setCloning(true);
+    try {
+      const src = relatedTrip || {};
+      const newTrip = await base44.entities.Trip.create({
+        destination_country: src.destination_country || post.country_code || '',
+        destination_city: src.destination_city || '',
+        destination_cities: src.destination_cities || [],
+        origin_country: src.origin_country || '',
+        duration_days: src.duration_days || 7,
+        trip_type: src.trip_type || 'leisure',
+        travelers_count: 1,
+        status: 'planning',
+        preferences: src.preferences || {},
+        ai_itinerary: src.ai_itinerary || null,
+        cloned_from_post: post.id,
+      });
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+      toast.success(t('¡Viaje añadido a tu planificador!'));
+      navigate(`/trip/${newTrip.id}`);
+    } catch {
+      toast.error(t('Error al clonar el viaje'));
+    }
+    setCloning(false);
+  };
+
+  const canClone = !!(relatedTrip?.destination_country || post.country_code);
 
   const initials = (author?.display_name || author?.full_name || 'U').slice(0, 2).toUpperCase();
   // Es video real solo si tiene video_url. Si es video_slideshow, usamos slideshow de imágenes.
@@ -316,8 +348,15 @@ function FeedItem({ post, active, muted, currentUser, onCommentsClick, queryClie
       <div className="relative z-10 flex flex-col items-center gap-5 pr-4 pb-24">
         <ActionButton icon={<Heart className={`w-7 h-7 ${liked ? 'fill-red-500 text-red-500' : 'text-white'}`} />} count={likeCount} onClick={handleLike} />
         <ActionButton icon={<MessageCircle className="w-7 h-7 text-white" />} count={post.comments_count || 0} onClick={onCommentsClick} />
-        <ActionButton icon={<Share2 className="w-7 h-7 text-white" />} label="Compartir" onClick={handleShare} />
-        <ActionButton icon={<Bookmark className="w-7 h-7 text-white" />} label="Guardar" onClick={() => toast.success('Guardado')} />
+        <ActionButton icon={<Share2 className="w-7 h-7 text-white" />} label={t('Compartir')} onClick={handleShare} />
+        {canClone && (
+          <ActionButton
+            icon={<Plane className={`w-7 h-7 ${cloning ? 'text-primary animate-pulse' : 'text-white'}`} />}
+            label={t('¡Lo quiero!')}
+            onClick={handleCloneTrip}
+          />
+        )}
+        <ActionButton icon={<Bookmark className="w-7 h-7 text-white" />} label={t('Guardar')} onClick={() => toast.success(t('Guardado'))} />
       </div>
     </div>
   );

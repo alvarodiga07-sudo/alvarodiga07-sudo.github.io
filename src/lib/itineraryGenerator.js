@@ -84,6 +84,33 @@ const COUNTRY_COST_MULTIPLIER = {
   'TH': 0.7, 'VN': 0.7, 'ID': 0.75, 'IN': 0.7, 'MA': 0.8, 'EG': 0.75,
 };
 
+// Países sin dato específico en COUNTRY_COST_MULTIPLIER caen aquí según su
+// región (mismas claves que COUNTRY_REGION en destinationData.js) — evita
+// mostrar el multiplicador por defecto (1x, precio de Europa occidental) a
+// destinos que claramente no lo son.
+const REGION_DEFAULT_MULTIPLIER = {
+  europa_sur: 1.0, europa_oeste: 1.15, europa_norte: 1.35, europa_este: 0.9,
+  asia_oriental: 1.05, sudeste_asia: 0.7, asia_sur: 0.65,
+  oriente_medio: 1.1, africa_norte: 0.8, africa_sub: 0.85,
+  norteamerica: 1.25, latam: 0.85, oceania: 1.35,
+};
+
+// Presupuesto realista por destino y nivel, para mostrar en el wizard ANTES de
+// generar el itinerario (#8): usa los mismos datos que el generador real, así
+// lo que se le promete al usuario en el paso "Presupuesto" coincide con lo que
+// luego calcula el itinerario. Devuelve coste total estimado por persona.
+export function estimateTripBudget(countryCode, days, region) {
+  const multiplier = COUNTRY_COST_MULTIPLIER[countryCode]
+    ?? REGION_DEFAULT_MULTIPLIER[region] ?? 1.0;
+  const n = Math.max(1, Number(days) || 1);
+  const out = {};
+  for (const [level, daily] of Object.entries(BUDGET_DAILY)) {
+    const perDay = Math.round((daily.hotel + daily.food + daily.activities + daily.transport) * multiplier);
+    out[level] = { perDay, total: perDay * n };
+  }
+  return out;
+}
+
 const HOTEL_ZONES = {
   'Tokio':'Shinjuku o Shibuya (bien conectados)', 'Kioto':'cerca de la estación o Gion',
   'Roma':'cerca de Termini o Trastevere', 'París':'Le Marais o Barrio Latino',
@@ -269,6 +296,14 @@ export function generateLocalItinerary(trip) {
   const allergyPhrase = ALLERGY_PHRASE[region] || ALLERGY_PHRASE.default;
   const mealPrices = MEAL_PRICES[budgetType] || MEAL_PRICES.mid;
 
+  // Edades de cada viajero (#7): si hay niños pequeños o mayores de 70,
+  // suavizamos el ritmo del día — menos plan nocturno, más pausas.
+  const travelerAges = (preferences.traveler_ages?.length ? preferences.traveler_ages : [preferences.age])
+    .filter(a => a !== null && a !== undefined && a !== '');
+  const hasKids = travelerAges.some(a => Number(a) < 12);
+  const hasSeniors = travelerAges.some(a => Number(a) >= 70);
+  const slowPace = hasKids || hasSeniors;
+
   // ── Ciudades a visitar ──
   let cities = destination_cities.length ? destination_cities : (destination_city ? [destination_city] : []);
   // Si no hay ciudades, buscar las que tengan datos curados para el país
@@ -324,7 +359,10 @@ export function generateLocalItinerary(trip) {
   // Equipaje: cabina (incluido en low-cost), facturada (+30-60€), ambos (+60-80€)
   const luggage = preferences.luggage || 'cabin';
   const luggageExtra = luggage === 'checked' ? 50 : luggage === 'both' ? 70 : 0;
-  const flightEst = Math.round(flightEstBase * countryMultiplier + luggageExtra);
+  // Fechas flexibles (±3 días): moverse fuera de picos de demanda suele bajar
+  // el precio del vuelo un 8-10% — reflejamos ese margen en la estimación.
+  const flexDiscount = preferences.flexible_dates ? 0.9 : 1;
+  const flightEst = Math.round((flightEstBase * countryMultiplier + luggageExtra) * flexDiscount);
   const totalLow = Math.round((perPersonDay * days + flightEst) * travelers * 0.85);
   const totalHigh = Math.round((perPersonDay * days + flightEst) * travelers * 1.2);
 
@@ -515,8 +553,8 @@ export function generateLocalItinerary(trip) {
       coste: mealPrices.cena,
     });
 
-    // 8. OPCIONAL NOCTURNO (no en último día)
-    if (!isLast && !isFirst) {
+    // 8. OPCIONAL NOCTURNO (no en último día, ni si viajáis con niños/mayores)
+    if (!isLast && !isFirst && !slowPace) {
       const nightOptions = [
         'Copa en azotea con vistas',
         'Concierto de música local',
@@ -545,11 +583,12 @@ export function generateLocalItinerary(trip) {
     ];
 
     // ─── Datos prácticos del día ───
-    const movimiento = budgetType === 'budget'
+    const movimiento = (budgetType === 'budget'
       ? `Andando + transporte público. Calcula 15-25 min entre paradas.`
       : budgetType === 'luxury'
       ? `Conductor privado o taxis VTC entre puntos. 5-15 min entre paradas.`
-      : `Mix andando + metro/bus + algún taxi para distancias largas o con calor.`;
+      : `Mix andando + metro/bus + algún taxi para distancias largas o con calor.`)
+      + (slowPace ? ' Ritmo pausado con paradas extra para descansar (viajáis con niños o mayores).' : '');
 
     const queLlevar = [
       seasonInfo.pack,
@@ -711,7 +750,7 @@ export function generateLocalItinerary(trip) {
     consejos_ahorro: consejos,
     vuelos: {
       mejor_momento_comprar: FLIGHT_TIPS[budgetType] || FLIGHT_TIPS.mid,
-      precio_aproximado: `${Math.round(flightEst*0.8)}€ - ${Math.round(flightEst*1.3)}€ ida y vuelta por persona desde ${originName} (incluye ${luggage === 'cabin' ? 'solo cabina' : luggage === 'checked' ? 'maleta facturada' : 'cabina + facturada'})`,
+      precio_aproximado: `${Math.round(flightEst*0.8)}€ - ${Math.round(flightEst*1.3)}€ ida y vuelta por persona desde ${originName} (incluye ${luggage === 'cabin' ? 'solo cabina' : luggage === 'checked' ? 'maleta facturada' : 'cabina + facturada'}${preferences.flexible_dates ? '; ya rebajado ~10% por fechas flexibles' : ''})`,
       equipaje: luggage === 'cabin'
         ? `Solo cabina: ahorrarás 30-60€ por trayecto en low-cost (Ryanair/Vueling). Comprueba medidas: máx 40×20×25cm bajo asiento gratis; 55×40×20cm en cabina paga 10-15€.`
         : luggage === 'checked'

@@ -150,10 +150,14 @@ create policy "notifications_insert_auth" on public.notifications for insert wit
 drop policy if exists "notifications_owner_delete" on public.notifications;
 create policy "notifications_owner_delete" on public.notifications for delete using (auth.uid() = user_id);
 
--- ---------- Storage: bucket público "uploads" para fotos ----------
-insert into storage.buckets (id, name, public)
-values ('uploads', 'uploads', true)
-on conflict (id) do nothing;
+-- ---------- Storage: bucket público "uploads" para fotos y vídeos ----------
+-- file_size_limit en bytes: 52428800 = 50MB — tope REAL confirmado en el proyecto
+-- (Dashboard → Storage → Settings): el plan Free de Supabase fija el límite global
+-- de subida en 50MB sin excepción, no editable. Solo pasando a plan Pro ($25/mes)
+-- se puede subir este número; hasta entonces, subirlo aquí no tendría efecto.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('uploads', 'uploads', true, 52428800)
+on conflict (id) do update set file_size_limit = 52428800;
 
 drop policy if exists "uploads_public_read" on storage.objects;
 create policy "uploads_public_read" on storage.objects for select using (bucket_id = 'uploads');

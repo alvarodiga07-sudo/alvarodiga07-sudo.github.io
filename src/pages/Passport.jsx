@@ -142,6 +142,18 @@ export default function Passport() {
   const totalPages = Math.max(1, Math.ceil(sortedStamps.length / stampsPerPage));
   const currentStamps = sortedStamps.slice(currentPage * stampsPerPage, (currentPage + 1) * stampsPerPage);
 
+  // "X países sellados" cuenta PAÍSES, no viajes — un mismo país con 2 viajes
+  // completados (2 sellos en el álbum) debe contar 1 vez aquí. Además se
+  // apoya en completedStamps (no en `stamps` en bruto) para que el número y
+  // las banderas coincidan siempre con lo que se ve en el álbum de arriba.
+  const uniqueCompletedCountries = React.useMemo(() => {
+    const seen = new Map();
+    completedStamps.forEach(s => {
+      if (s.country_code && !seen.has(s.country_code)) seen.set(s.country_code, s);
+    });
+    return [...seen.values()];
+  }, [completedStamps]);
+
   // Motivos sutiles por país de origen del pasaporte
   const bgMotifs = {
     ES: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 20 L50 20 L38 30 L42 45 L30 36 L18 45 L22 30 L10 20 L25 20Z' fill='none' stroke='%23c8a882' stroke-width='0.5' opacity='0.15'/%3E%3C/svg%3E\")",
@@ -320,13 +332,13 @@ export default function Passport() {
         <div className="bg-card rounded-2xl border border-border p-4">
           <h3 className="text-sm font-semibold text-foreground mb-3">{t('Colección de sellos')}</h3>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-2xl font-bold text-primary">{stamps.length}</span>
+            <span className="text-2xl font-bold text-primary">{uniqueCompletedCountries.length}</span>
             <span>{t('países sellados en tu pasaporte')}</span>
           </div>
-          {stamps.length > 0 && (
+          {uniqueCompletedCountries.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
-              {stamps.map(s => (
-                <span key={s.id} className="text-lg" title={s.country_name}>
+              {uniqueCompletedCountries.map(s => (
+                <span key={s.country_code} className="text-lg" title={s.country_name}>
                   {getCountryEmoji(s.country_code)}
                 </span>
               ))}

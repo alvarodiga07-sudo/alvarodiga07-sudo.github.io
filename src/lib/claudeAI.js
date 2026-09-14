@@ -154,6 +154,60 @@ async function callClaude(promptText) {
   }
 }
 
+// Lee una foto/captura de un billete de avión y extrae SOLO lo que está
+// literalmente escrito en ella — nunca inventa ni estima horas o vuelos que
+// no aparezcan. Requiere la clave de Claude conectada (llamada de visión real,
+// no el generador local). `dataUrl` es un data-URI base64 (ver localDB.js
+// compressImage / base44.integrations.Core.UploadFile).
+export async function analyzeTicketImage(dataUrl) {
+  const key = getApiKey();
+  if (!key) throw new Error('NO_API_KEY');
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error('INVALID_IMAGE');
+  const [, mediaType, base64Data] = match;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 55000);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 1000,
+        system: 'Extraes datos de billetes de avión a partir de imágenes. Responde ÚNICAMENTE con JSON válido, sin texto adicional ni markdown. Usa null en cualquier campo que no puedas leer literalmente en la imagen — JAMÁS inventes, completes ni estimes un dato que no esté escrito ahí.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+            { type: 'text', text: `Extrae de este billete de avión EXACTAMENTE lo que está escrito (nada inventado, nada deducido). Devuelve solo este JSON:
+{"airline": "aerolínea o null", "out_flight": "nº de vuelo de ida o null", "out_dep": "salida ida en YYYY-MM-DDTHH:mm o null", "out_arr": "llegada ida en YYYY-MM-DDTHH:mm o null", "ret_flight": "nº de vuelo de vuelta o null (billete solo ida = null)", "ret_dep": "salida vuelta en YYYY-MM-DDTHH:mm o null", "ret_arr": "llegada vuelta en YYYY-MM-DDTHH:mm o null", "booking_ref": "localizador/PNR o null", "notes": "terminal, asiento o escalas si aparecen, o null", "warning": "si la imagen no parece un billete o no se lee bien, explica qué pasa; si no, null"}
+Si una fecha no lleva año escrito pero hay otro año visible en el billete, úsalo; si no hay año en ningún sitio, deja esa fecha en null en vez de adivinarlo. Si hay ida y vuelta, rellena ambas; si solo hay un trayecto, deja el otro en null.` },
+          ],
+        }],
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('API_KEY_INVALID');
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Error ${res.status}`);
+    }
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)```/)
+      || text.match(/```\s*([\s\S]*?)```/)
+      || text.match(/(\{[\s\S]*\})/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    return JSON.parse(jsonMatch[1].trim());
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getMonthSeason(dateStr) {
   if (!dateStr) return '';
   const month = new Date(dateStr).getMonth() + 1;
@@ -169,7 +223,7 @@ function buildPrompt(trip) {
     duration_days, start_date, end_date, trip_type,
     travelers_count, preferences = {} } = trip;
   const { health_notes, interests, food_restrictions, food_experiences, priorities,
-    age, companions, budget_type, budget_amount, accommodation_pref,
+    age, traveler_ages, companions, budget_type, budget_amount, accommodation_pref,
     flexible_dates, optimize_cost } = preferences;
   const days = Math.min(Number(duration_days) || 7, 10); // máx 10 días para no saturar el modelo
   const season = getMonthSeason(start_date);
@@ -193,7 +247,7 @@ function buildPrompt(trip) {
 
 PERFIL DEL VIAJERO:
 - Tipo de viaje: ${trip_type || 'ocio y turismo'}
-- Viajeros: ${travelers_count || 1} persona(s)${age ? `, edad ${age}` : ''}${companions && companions !== 'solo' ? `, viajan en: ${companions}` : ''}
+- Viajeros: ${travelers_count || 1} persona(s)${traveler_ages?.length > 1 ? `, edades: ${traveler_ages.join(', ')} años` : age ? `, edad ${age}` : ''}${companions && companions !== 'solo' ? `, viajan en: ${companions}` : ''}${traveler_ages?.some(a => Number(a) < 12) ? ' — AJUSTA EL RITMO: viajan con niños, más descansos y menos plan nocturno' : ''}${traveler_ages?.some(a => Number(a) >= 70) ? ' — AJUSTA EL RITMO: viajan con mayores, evita caminatas largas seguidas' : ''}
 - Estación al viajar: ${season || 'no especificada'}${start_date ? ` (${start_date}${end_date ? ' al ' + end_date : ''})` : ''}
 - Presupuesto: ${budgetMap[budget_type] || 'medio'}${budget_amount ? ` — total aproximado ${budget_amount}€` : ''}${optimize_cost ? ' — PRIORIZAR opciones económicas' : ''}
 - Alojamiento: ${accommodation_pref || 'sin preferencia'}${flexible_dates ? ' — fechas flexibles para mejores precios' : ''}

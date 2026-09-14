@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Image, MapPin, Plane, Check } from 'lucide-react';
+import { X, Image, Video, MapPin, Plane, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,10 +14,18 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoPreview, setVideoPreview] = useState('');
   const [countryCode, setCountryCode] = useState('');
   const [tripId, setTripId] = useState('');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Tope REAL del proyecto: Supabase Free Plan fija el límite global de subida en
+  // 50MB, sin excepción (Dashboard → Storage → Settings lo confirma como no editable
+  // salvo pasando a Pro, $25/mes — decisión pendiente del usuario, no de código).
+  // Subir este número no serviría de nada mientras el proyecto siga en Free.
+  const MAX_VIDEO_MB = 50;
 
   const handleImages = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -40,14 +48,40 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
     setPreviews(p => p.filter((_, idx) => idx !== i));
   };
 
+  const handleVideo = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      toast.error(`El vídeo pesa demasiado (máx. ${MAX_VIDEO_MB}MB)`);
+      return;
+    }
+    setVideoPreview(URL.createObjectURL(file));
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setVideoUrl(file_url);
+    } catch {
+      toast.error('Error al subir el vídeo');
+      setVideoPreview('');
+    }
+    setUploading(false);
+  };
+
+  const removeVideo = () => {
+    setVideoUrl('');
+    setVideoPreview('');
+  };
+
   const handleSave = async () => {
-    if (!images.length && !caption) return;
+    if (!images.length && !videoUrl && !caption) return;
     setSaving(true);
     const me = await base44.auth.me();
     await base44.entities.Post.create({
       caption,
       images,
-      post_type: images.length > 1 ? 'carousel' : images.length === 1 ? 'photo' : 'text',
+      video_url: videoUrl || undefined,
+      post_type: videoUrl ? 'video' : images.length > 1 ? 'carousel' : images.length === 1 ? 'photo' : 'text',
       country_code: countryCode || undefined,
       trip_id: tripId || undefined,
       is_highlighted: false,
@@ -64,6 +98,8 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
     setCaption('');
     setImages([]);
     setPreviews([]);
+    setVideoUrl('');
+    setVideoPreview('');
     setCountryCode('');
     setTripId('');
     onClose();
@@ -102,7 +138,7 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={saving || uploading || (!images.length && !caption)}
+              disabled={saving || uploading || (!images.length && !videoUrl && !caption)}
               className="h-8 px-4 rounded-xl text-xs"
             >
               {saving ? (
@@ -112,33 +148,64 @@ export default function CreatePostModal({ open, onClose, trips = [] }) {
           </div>
 
           <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-            {/* Image picker */}
-            <div>
-              <div className="flex gap-2 flex-wrap">
-                {previews.map((src, i) => (
-                  <div key={i} className="relative w-20 h-20">
-                    <img src={src} alt="" className="w-full h-full object-cover rounded-xl" />
+            {/* Video picker (excluyente con fotos: un post es o carrusel de fotos o un vídeo) */}
+            {!images.length && (
+              <div>
+                {videoPreview ? (
+                  <div className="relative w-full aspect-[9/16] max-h-64 mx-auto">
+                    <video src={videoPreview} className="w-full h-full object-cover rounded-xl bg-black" controls muted />
                     <button
-                      onClick={() => removeImage(i)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                      onClick={removeVideo}
+                      className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"
                     >
-                      <X className="w-3 h-3 text-white" />
+                      <X className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
-                ))}
-                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImages} />
-                  {uploading ? (
-                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Image className="w-5 h-5 text-muted-foreground mb-1" />
-                      <span className="text-[10px] text-muted-foreground">Añadir</span>
-                    </>
-                  )}
-                </label>
+                ) : (
+                  <label className="w-full h-20 rounded-xl border-2 border-dashed border-border flex items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                    <input type="file" accept="video/*" className="hidden" onChange={handleVideo} />
+                    {uploading ? (
+                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Video className="w-5 h-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Subir vídeo (máx. {MAX_VIDEO_MB}MB)</span>
+                      </>
+                    )}
+                  </label>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Image picker (excluyente con vídeo) */}
+            {!videoUrl && !videoPreview && (
+              <div>
+                <div className="flex gap-2 flex-wrap">
+                  {previews.map((src, i) => (
+                    <div key={i} className="relative w-20 h-20">
+                      <img src={src} alt="" className="w-full h-full object-cover rounded-xl" />
+                      <button
+                        onClick={() => removeImage(i)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImages} />
+                    {uploading ? (
+                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Image className="w-5 h-5 text-muted-foreground mb-1" />
+                        <span className="text-[10px] text-muted-foreground">Añadir</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Caption */}
             <Textarea

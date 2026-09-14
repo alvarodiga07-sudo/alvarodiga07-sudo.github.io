@@ -24,6 +24,7 @@ import AnnualRecap from './pages/AnnualRecap';
 import SocialFeed from './pages/SocialFeed';
 import PeopleSearch from './pages/PeopleSearch';
 import UserProfile from './pages/UserProfile';
+import SharedTrip from './pages/SharedTrip';
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
@@ -84,6 +85,9 @@ const AuthenticatedApp = () => {
       <Route path="/trip-wizard" element={<TripWizard />} />
       {/* SocialFeed va FUERA del layout para ocupar pantalla completa (estilo TikTok) */}
       <Route path="/social" element={<SocialFeed />} />
+      {/* Enlace de viaje compartido (#6) — sin layout ni login: cualquiera que
+          abra el enlace debe poder verlo, esté o no "registrado" en este dispositivo */}
+      <Route path="/shared/:data" element={<SharedTrip />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/trips" element={<Trips />} />

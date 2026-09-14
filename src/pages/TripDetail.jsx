@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, MapPin, Calendar, Users, Edit3, Save, Plus, Image,
   Video, Map, FileText, Trash2, Check, Plane, Hotel, ChevronDown,
-  ChevronUp, Clock, DollarSign, Info, Utensils, Star, Sparkles, RefreshCw
+  ChevronUp, Clock, DollarSign, Info, Utensils, Star, Sparkles, RefreshCw,
+  Share2, Eye, PencilLine, Link as LinkIcon, Camera, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,9 +19,11 @@ const es = undefined; // locale ahora dinámico
 import TripMap from '@/components/trips/TripMap';
 import TripVideoTab from '@/components/trips/TripVideoTab';
 import { toast } from 'sonner';
-import { generateItinerary } from '@/lib/claudeAI';
+import { generateItinerary, analyzeTicketImage, hasApiKey } from '@/lib/claudeAI';
 import { COUNTRIES } from '@/lib/countries';
 import { buildSearchLinks } from '@/lib/searchLinks';
+import { buildShareUrl } from '@/lib/shareTrip';
+import { TRIP_TYPES, BUDGETS, INTERESTS, DIET, Chip } from './TripWizard';
 import { useT } from '@/lib/i18n';
 
 const STATUS_LABELS = { planning: 'Planeando', active: 'Activo', completed: 'Completado' };
@@ -69,18 +72,83 @@ const EMPTY_FLIGHT_INFO = {
   ret_flight: '', ret_dep: '', ret_arr: '', booking_ref: '', notes: '',
 };
 
+const DT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
 function TicketInfo({ trip, tripId, queryClient }) {
   const { t } = useT();
   const saved = trip.flight_info || null;
   const [editing, setEditing] = useState(false);
   const [f, setF] = useState(saved || EMPTY_FLIGHT_INFO);
   const up = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const [scanning, setScanning] = useState(false);
+  const [scanWarning, setScanWarning] = useState(null);
+  const [scannedFields, setScannedFields] = useState(new Set());
+  const fileInputRef = React.useRef(null);
+
+  // Lee la foto del billete con Claude (visión) y precarga SOLO lo que
+  // literalmente encuentra escrito — nunca inventa nada. El usuario revisa y
+  // corrige en el formulario antes de guardar; no se guarda automáticamente.
+  const handleScanTicket = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!hasApiKey()) {
+      toast.error(t('Conecta tu clave de Claude en Ajustes para escanear billetes'));
+      return;
+    }
+    setScanning(true);
+    setScanWarning(null);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const result = await analyzeTicketImage(file_url);
+      const filled = new Set();
+      const next = { ...f };
+      const TEXT_FIELDS = ['airline', 'out_flight', 'ret_flight', 'booking_ref', 'notes'];
+      const DT_FIELDS = ['out_dep', 'out_arr', 'ret_dep', 'ret_arr'];
+      TEXT_FIELDS.forEach(k => {
+        if (result[k] && typeof result[k] === 'string' && result[k].trim()) {
+          next[k] = result[k].trim();
+          filled.add(k);
+        }
+      });
+      DT_FIELDS.forEach(k => {
+        if (result[k] && DT_RE.test(result[k])) {
+          next[k] = result[k];
+          filled.add(k);
+        }
+      });
+      setF(next);
+      setScannedFields(filled);
+      setEditing(true);
+      if (filled.size === 0) {
+        setScanWarning(result.warning || t('No he podido leer datos de vuelo en esta imagen. Prueba con una foto más clara del billete.'));
+      } else {
+        setScanWarning(result.warning || null);
+        toast.success(t('Billete leído — revisa los datos antes de guardar'));
+      }
+    } catch (err) {
+      if (err.message === 'NO_API_KEY' || err.message === 'API_KEY_INVALID') {
+        toast.error(t('Conecta tu clave de Claude en Ajustes para escanear billetes'));
+      } else {
+        toast.error(t('No se pudo leer la imagen. Inténtalo de nuevo o rellénalo a mano.'));
+      }
+    }
+    setScanning(false);
+  };
 
   const save = async () => {
-    await base44.entities.Trip.update(tripId, { flight_info: f });
+    const updates = { flight_info: f };
+    // Si hay itinerario y horas reales de llegada/vuelta, reajustamos el día 1
+    // y el último día para que sean coherentes con el vuelo real (#3).
+    if (trip.ai_itinerary && (f.out_arr || f.ret_dep)) {
+      updates.ai_itinerary = adjustItineraryForFlights(trip.ai_itinerary, f);
+    }
+    await base44.entities.Trip.update(tripId, updates);
     queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
     setEditing(false);
-    toast.success(t('Billetes guardados en el viaje'));
+    setScannedFields(new Set());
+    setScanWarning(null);
+    toast.success(updates.ai_itinerary ? t('Billetes guardados y el plan del día se ha ajustado a tu vuelo') : t('Billetes guardados en el viaje'));
   };
 
   const fmtDT = (v) => {
@@ -90,15 +158,25 @@ function TicketInfo({ trip, tripId, queryClient }) {
 
   if (!saved && !editing) {
     return (
-      <button onClick={() => { setF(EMPTY_FLIGHT_INFO); setEditing(true); }}
-        className="w-full flex items-center gap-3 bg-card border border-dashed border-primary/40 rounded-2xl p-4 mb-4 hover:border-primary transition-colors text-left">
-        <span className="text-2xl">🎫</span>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-foreground">{t('¿Ya tienes los billetes?')}</p>
-          <p className="text-[11px] text-muted-foreground">{t('Guarda tu vuelo (números, horas) y ajusta el plan del primer y último día.')}</p>
+      <div className="bg-card border border-dashed border-primary/40 rounded-2xl p-4 mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-2xl">🎫</span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">{t('¿Ya tienes los billetes?')}</p>
+            <p className="text-[11px] text-muted-foreground">{t('Guarda tu vuelo (números, horas) y ajusta el plan del primer y último día.')}</p>
+          </div>
         </div>
-        <Plus className="w-4 h-4 text-primary flex-shrink-0" />
-      </button>
+        <div className="flex gap-2">
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanTicket} />
+          <Button size="sm" variant="outline" disabled={scanning} onClick={() => fileInputRef.current?.click()} className="flex-1 h-9 rounded-xl text-xs">
+            {scanning ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Camera className="w-3.5 h-3.5 mr-1.5" />}
+            {scanning ? t('Leyendo...') : t('Escanear foto')}
+          </Button>
+          <Button size="sm" onClick={() => { setF(EMPTY_FLIGHT_INFO); setEditing(true); }} className="flex-1 h-9 rounded-xl text-xs">
+            <Edit3 className="w-3.5 h-3.5 mr-1.5" />{t('Escribir a mano')}
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -119,9 +197,9 @@ function TicketInfo({ trip, tripId, queryClient }) {
           )}
           {saved.booking_ref && <p><span className="font-semibold">Localizador:</span> <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">{saved.booking_ref}</span></p>}
           {saved.notes && <p className="text-muted-foreground">{saved.notes}</p>}
-          {saved.out_arr && (
+          {(saved.out_arr || saved.ret_dep) && trip.ai_itinerary && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-              💡 Llegas el {fmtDT(saved.out_arr)}: planifica el día 1 a partir de esa hora (traslado + check-in ≈ 2h).
+              ✅ {t('El itinerario del día 1 y del último día ya está ajustado a estas horas.')}
             </p>
           )}
         </div>
@@ -129,61 +207,85 @@ function TicketInfo({ trip, tripId, queryClient }) {
     );
   }
 
+  const fieldClass = (key) => `w-full h-9 px-2 text-xs rounded-lg border bg-background ${
+    scannedFields.has(key) ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`;
+
   return (
     <div className="bg-card rounded-2xl border border-primary/40 p-4 mb-4 space-y-3">
-      <p className="text-sm font-bold text-foreground">🎫 {t('Datos de tus billetes')}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-foreground">🎫 {t('Datos de tus billetes')}</p>
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanTicket} />
+        <button type="button" disabled={scanning} onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline disabled:opacity-50">
+          {scanning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+          {scanning ? t('Leyendo...') : t('Escanear foto')}
+        </button>
+      </div>
+
+      {scannedFields.size > 0 && !scanWarning && (
+        <p className="text-[11px] text-primary bg-primary/10 rounded-lg px-2.5 py-1.5">
+          ✅ {t('He rellenado lo que se lee en la foto (marcado en color) — revisa que esté bien antes de guardar.')}
+        </p>
+      )}
+      {scanWarning && (
+        <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>{scanWarning}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
           <label className="text-[10px] text-muted-foreground">{t('Aerolínea')}</label>
           <input value={f.airline} onChange={e => up('airline', e.target.value)} placeholder="ej. Iberia"
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('airline')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Nº vuelo ida')}</label>
           <input value={f.out_flight} onChange={e => up('out_flight', e.target.value)} placeholder="IB6801"
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('out_flight')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Nº vuelo vuelta')}</label>
           <input value={f.ret_flight} onChange={e => up('ret_flight', e.target.value)} placeholder="IB6802"
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('ret_flight')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Ida: salida')}</label>
           <input type="datetime-local" value={f.out_dep} onChange={e => up('out_dep', e.target.value)}
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('out_dep')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Ida: llegada')}</label>
           <input type="datetime-local" value={f.out_arr} onChange={e => up('out_arr', e.target.value)}
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('out_arr')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Vuelta: salida')}</label>
           <input type="datetime-local" value={f.ret_dep} onChange={e => up('ret_dep', e.target.value)}
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('ret_dep')} />
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground">{t('Vuelta: llegada')}</label>
           <input type="datetime-local" value={f.ret_arr} onChange={e => up('ret_arr', e.target.value)}
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('ret_arr')} />
         </div>
         <div className="col-span-2">
           <label className="text-[10px] text-muted-foreground">{t('Localizador / referencia (opcional)')}</label>
           <input value={f.booking_ref} onChange={e => up('booking_ref', e.target.value)} placeholder="ABC123"
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('booking_ref')} />
         </div>
         <div className="col-span-2">
           <label className="text-[10px] text-muted-foreground">{t('Notas (terminal, asientos, escalas...)')}</label>
           <input value={f.notes} onChange={e => up('notes', e.target.value)} placeholder="T4, asientos 12A-12B"
-            className="w-full h-9 px-2 text-xs rounded-lg border border-border bg-background" />
+            className={fieldClass('notes')} />
         </div>
       </div>
       <div className="flex gap-2">
         <Button size="sm" onClick={save} className="flex-1 h-9 rounded-lg text-xs">
           <Save className="w-3 h-3 mr-1" />{t('Guardar billetes')}
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="h-9 rounded-lg text-xs px-3">
+        <Button size="sm" variant="outline" onClick={() => { setEditing(false); setScannedFields(new Set()); setScanWarning(null); }} className="h-9 rounded-lg text-xs px-3">
           Cancelar
         </Button>
       </div>
@@ -191,12 +293,184 @@ function TicketInfo({ trip, tripId, queryClient }) {
   );
 }
 
-function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
+// ─── Helpers para la cascada de horarios al editar el itinerario (#5) ───
+// "1h30" / "2h" / "45min" / "1h-2h" (rango → coge el primer valor) → minutos
+function parseDuration(str) {
+  if (!str) return 60;
+  const s = String(str).trim();
+  const h = s.match(/(\d+)\s*h\s*(\d+)?/i);
+  if (h) return (Number(h[1]) || 0) * 60 + (Number(h[2]) || 0);
+  const min = s.match(/(\d+)\s*min/i);
+  if (min) return Number(min[1]) || 0;
+  return 60;
+}
+function parseTime(str) {
+  const m = String(str || '').match(/^(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function formatTime(mins) {
+  const m = ((Math.round(mins) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+// Ajusta el día 1 y el último día del itinerario a las horas REALES del vuelo
+// (llegas de noche → no puedes hacer el plan de la mañana; sales muy pronto →
+// no puedes hacer el de la tarde). Recorta lo inviable y reencadena lo que
+// queda para que el día siga siendo coherente (nada de cenar a las 5 de la
+// mañana). Guarda el plan original en `_pre_flight_actividades` la primera
+// vez, así si luego cambias la hora del vuelo se recalcula siempre desde el
+// plan completo — nunca desde una versión ya recortada.
+function adjustItineraryForFlights(itinerary, flightInfo) {
+  if (!itinerary?.dias?.length) return itinerary;
+  const dias = itinerary.dias.map(d => ({ ...d }));
+
+  const timeOfDay = (dt) => {
+    if (!dt) return null;
+    const d = new Date(dt);
+    return isNaN(d.getTime()) ? null : d.getHours() * 60 + d.getMinutes();
+  };
+
+  // ── Día 1: recorta lo anterior a "listo para salir" (llegada + ~2h traslado/check-in) ──
+  const arrivalMin = timeOfDay(flightInfo?.out_arr);
+  if (arrivalMin != null && dias[0]) {
+    const day = dias[0];
+    const pristine = day._pre_flight_actividades || day.actividades || [];
+    const readyMin = Math.min(arrivalMin + 120, 23 * 60 + 30);
+    let acts = pristine.filter(a => {
+      const h = parseTime(a.hora);
+      return h == null || h >= readyMin;
+    });
+    if (acts.length === 0) {
+      acts = [{
+        hora: formatTime(readyMin), franja: readyMin >= 20 * 60 ? 'noche' : 'tarde',
+        nombre: 'Check-in y descanso', tipo: 'descanso', duracion: '1h',
+        descripcion: 'Llegada tardía: hoy toca instalarse y descansar para arrancar fuerte mañana.',
+        consejo: 'Busca algo ligero cerca del hotel — sin planes ambiciosos hoy.', coste: 'Gratis',
+      }];
+    } else {
+      let cursor = readyMin;
+      acts = acts.map(a => {
+        const shifted = { ...a, hora: formatTime(cursor) };
+        cursor += parseDuration(a.duracion);
+        return shifted;
+      });
+    }
+    dias[0] = { ...day, _pre_flight_actividades: pristine, actividades: acts,
+      nota_del_dia: `✈️ Ajustado a tu llegada real (${formatTime(arrivalMin)}): el plan de antes de esa hora no era viable.` };
+  }
+
+  // ── Último día: recorta lo posterior a "hora de salir hacia el aeropuerto" ──
+  const departureMin = timeOfDay(flightInfo?.ret_dep);
+  if (departureMin != null && dias.length) {
+    const lastIdx = dias.length - 1;
+    const day = dias[lastIdx];
+    const pristine = day._pre_flight_actividades || day.actividades || [];
+    const mustLeaveMin = Math.max(0, departureMin - 150);
+    let acts = pristine.filter(a => {
+      const h = parseTime(a.hora);
+      return h == null || h < mustLeaveMin;
+    });
+    if (acts.length === 0) {
+      acts = [{
+        hora: formatTime(Math.max(0, mustLeaveMin - 30)), franja: 'mañana',
+        nombre: 'Desayuno rápido y traslado al aeropuerto', tipo: 'transporte', duracion: '30min',
+        descripcion: 'Salida muy temprana: hoy no hay tiempo para plan, solo para llegar bien al vuelo.',
+        consejo: 'Deja la maleta lista la noche antes y pide el desayuno para llevar si el hotel lo ofrece.', coste: 'Gratis',
+      }];
+    }
+    dias[lastIdx] = { ...day, _pre_flight_actividades: pristine, actividades: acts,
+      nota_del_dia: `✈️ Sales a las ${formatTime(departureMin)} — sal hacia el aeropuerto sobre las ${formatTime(mustLeaveMin)}.` };
+  }
+
+  return { ...itinerary, dias };
+}
+
+// Exportado (además del default de la página) para que SharedTrip.jsx pueda
+// reutilizar exactamente el mismo render del itinerario en modo readOnly.
+export function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating, tripId, queryClient, readOnly = false }) {
   const { t } = useT();
   const [openDay, setOpenDay] = useState(0);
-  // Enlaces SIEMPRE frescos desde los datos del viaje (fechas, personas, presupuesto).
-  // Prevalecen sobre las URLs congeladas dentro de ai_itinerary (viajes antiguos).
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [showEditChoice, setShowEditChoice] = useState(false);
+  const [showPrefsEditor, setShowPrefsEditor] = useState(false);
   const links = buildSearchLinks(trip, user);
+
+  const displayData = editMode && editData ? editData : itinerary;
+
+  const startEdit = () => {
+    setEditData(JSON.parse(JSON.stringify(itinerary)));
+    setEditMode(true);
+  };
+  const cancelEdit = () => { setEditData(null); setEditMode(false); };
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      await base44.entities.Trip.update(tripId, { ai_itinerary: editData });
+      queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+      setEditMode(false);
+      setEditData(null);
+      toast.success(t('Itinerario actualizado'));
+    } catch { toast.error('Error al guardar'); }
+    setSaving(false);
+  };
+  const updateActivity = (dayIdx, actIdx, field, value) => {
+    setEditData(prev => ({
+      ...prev, dias: prev.dias.map((d, di) => {
+        if (di !== dayIdx) return d;
+        let acts = d.actividades.map((a, ai) => ai !== actIdx ? a : { ...a, [field]: value });
+        // Al cambiar la hora O la duración de una actividad, las siguientes del
+        // día se reencadenan a partir de ahí (hora + duración = inicio de la
+        // siguiente) — antes se quedaban con su hora vieja y el día dejaba de
+        // tener sentido (dos actividades a la vez, huecos raros...).
+        if (field === 'hora' || field === 'duracion') {
+          const startMin = parseTime(acts[actIdx].hora);
+          if (startMin != null) {
+            let cursor = startMin + parseDuration(acts[actIdx].duracion);
+            acts = acts.map((a, ai) => {
+              if (ai <= actIdx) return a;
+              const shifted = { ...a, hora: formatTime(cursor) };
+              cursor += parseDuration(a.duracion);
+              return shifted;
+            });
+          }
+        }
+        return { ...d, actividades: acts };
+      })
+    }));
+  };
+  const deleteActivity = (dayIdx, actIdx) => {
+    setEditData(prev => ({
+      ...prev, dias: prev.dias.map((d, di) => di !== dayIdx ? d : {
+        ...d, actividades: d.actividades.filter((_, ai) => ai !== actIdx)
+      })
+    }));
+  };
+  const moveActivity = (dayIdx, actIdx, dir) => {
+    setEditData(prev => ({
+      ...prev, dias: prev.dias.map((d, di) => {
+        if (di !== dayIdx) return d;
+        const acts = [...d.actividades];
+        const t2 = actIdx + dir;
+        if (t2 < 0 || t2 >= acts.length) return d;
+        [acts[actIdx], acts[t2]] = [acts[t2], acts[actIdx]];
+        return { ...d, actividades: acts };
+      })
+    }));
+  };
+  const addActivity = (dayIdx) => {
+    setEditData(prev => ({
+      ...prev, dias: prev.dias.map((d, di) => di !== dayIdx ? d : {
+        ...d, actividades: [...d.actividades, { hora: '12:00', nombre: t('Nueva actividad'), tipo: 'visita', duracion: '1h', descripcion: '', coste: '' }]
+      })
+    }));
+  };
+  const updateDay = (dayIdx, field, value) => {
+    setEditData(prev => ({
+      ...prev, dias: prev.dias.map((d, di) => di !== dayIdx ? d : { ...d, [field]: value })
+    }));
+  };
 
   if (!itinerary) return (
     <div className="bg-card rounded-2xl border border-dashed border-primary/30 p-8 text-center">
@@ -211,13 +485,35 @@ function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
 
   return (
     <div className="space-y-4">
-      {/* Botón regenerar */}
-      <div className="flex justify-end">
-        <Button onClick={onRegenerate} disabled={regenerating} variant="outline" size="sm" className="h-8 rounded-xl text-xs">
-          {regenerating ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
-          {t('Regenerar')}
-        </Button>
-      </div>
+      {/* Botones editar / guardar / regenerar — ocultos en vista de enlace compartido (readOnly) */}
+      {!readOnly && <div className="flex items-center justify-between gap-2">
+        {editMode ? (
+          <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-1.5 text-xs text-primary font-semibold">
+              <Edit3 className="w-3.5 h-3.5" />{t('Modo edición')}
+            </div>
+            <div className="flex-1" />
+            <Button size="sm" variant="outline" onClick={cancelEdit} className="h-8 rounded-xl text-xs">{t('Cancelar')}</Button>
+            <Button size="sm" onClick={saveEdit} disabled={saving} className="h-8 rounded-xl text-xs">
+              {saving ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+              {t('Guardar')}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div />
+            <div className="flex gap-2">
+              <Button onClick={() => setShowEditChoice(true)} variant="outline" size="sm" className="h-8 rounded-xl text-xs">
+                <Edit3 className="w-3 h-3 mr-1" />{t('Editar')}
+              </Button>
+              <Button onClick={onRegenerate} disabled={regenerating} variant="outline" size="sm" className="h-8 rounded-xl text-xs">
+                {regenerating ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                {t('Regenerar')}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>}
 
       {/* Resumen */}
       {itinerary.resumen && (
@@ -459,23 +755,29 @@ function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
       )}
 
       {/* Días del itinerario */}
-      {itinerary.dias?.length > 0 && (
+      {displayData?.dias?.length > 0 && (
         <div>
           <h3 className="text-sm font-bold text-foreground mb-3">📅 {t('Itinerario día a día')}</h3>
           <div className="space-y-3">
-            {itinerary.dias.map((dia, idx) => (
-              <div key={idx} className="bg-card rounded-2xl border border-border overflow-hidden">
+            {displayData.dias.map((dia, idx) => (
+              <div key={idx} className={`bg-card rounded-2xl border overflow-hidden ${editMode ? 'border-primary/30' : 'border-border'}`}>
                 <button
                   onClick={() => setOpenDay(openDay === idx ? -1 : idx)}
                   className="w-full flex items-center justify-between p-4 text-left hover:bg-secondary/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${editMode ? 'bg-primary/20' : 'bg-primary/10'}`}>
                       <span className="text-xs font-bold text-primary">{dia.dia}</span>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{dia.titulo}</p>
-                      {dia.descripcion_dia && <p className="text-xs text-muted-foreground truncate max-w-[220px]">{dia.descripcion_dia}</p>}
+                    <div className="min-w-0 flex-1">
+                      {editMode ? (
+                        <input value={dia.titulo || ''} onClick={e => e.stopPropagation()}
+                          onChange={e => updateDay(idx, 'titulo', e.target.value)}
+                          className="text-sm font-semibold text-foreground bg-transparent border-b border-primary/30 focus:border-primary outline-none w-full" />
+                      ) : (
+                        <p className="text-sm font-semibold text-foreground truncate">{dia.titulo}</p>
+                      )}
+                      {dia.descripcion_dia && !editMode && <p className="text-xs text-muted-foreground truncate">{dia.descripcion_dia}</p>}
                     </div>
                   </div>
                   {openDay === idx ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
@@ -502,11 +804,45 @@ function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
                         )}
 
                         {/* Plan del día (timeline) */}
-                        {dia.actividades?.length > 0 && (
+                        {(dia.actividades?.length > 0 || editMode) && (
                           <div>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Plan del día</p>
                             <div className="space-y-2">
-                              {dia.actividades.map((act, ai) => {
+                              {(dia.actividades || []).map((act, ai) => {
+                                if (editMode) {
+                                  return (
+                                    <div key={ai} className="flex gap-2 bg-secondary/40 rounded-xl p-3 border border-border">
+                                      <div className="flex flex-col items-center gap-1">
+                                        <input value={act.hora || ''} onChange={e => updateActivity(idx, ai, 'hora', e.target.value)}
+                                          className="w-14 h-7 text-[10px] font-mono text-center rounded-lg border border-border bg-background focus:border-primary outline-none" />
+                                        <button onClick={() => moveActivity(idx, ai, -1)} disabled={ai === 0}
+                                          className="w-6 h-5 flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-20 rounded">
+                                          <ChevronUp className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={() => moveActivity(idx, ai, 1)} disabled={ai === (dia.actividades || []).length - 1}
+                                          className="w-6 h-5 flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-20 rounded">
+                                          <ChevronDown className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                      <div className="flex-1 space-y-1.5 min-w-0">
+                                        <input value={act.nombre || ''} onChange={e => updateActivity(idx, ai, 'nombre', e.target.value)}
+                                          className="w-full h-7 px-2 text-xs font-semibold rounded-lg border border-border bg-background focus:border-primary outline-none" placeholder={t('Nombre')} />
+                                        <input value={act.descripcion || ''} onChange={e => updateActivity(idx, ai, 'descripcion', e.target.value)}
+                                          className="w-full h-7 px-2 text-[11px] rounded-lg border border-border bg-background focus:border-primary outline-none" placeholder={t('Descripción')} />
+                                        <div className="flex gap-1.5">
+                                          <input value={act.duracion || ''} onChange={e => updateActivity(idx, ai, 'duracion', e.target.value)}
+                                            className="w-16 h-6 px-1.5 text-[10px] rounded-lg border border-border bg-background focus:border-primary outline-none" placeholder="2h" />
+                                          <input value={act.coste || ''} onChange={e => updateActivity(idx, ai, 'coste', e.target.value)}
+                                            className="w-20 h-6 px-1.5 text-[10px] rounded-lg border border-border bg-background focus:border-primary outline-none" placeholder="~10€" />
+                                        </div>
+                                      </div>
+                                      <button onClick={() => deleteActivity(idx, ai)}
+                                        className="self-start p-1.5 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  );
+                                }
                                 const franjaColors = {
                                   'mañana': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
                                   'mediodía': 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
@@ -543,6 +879,12 @@ function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
                                 );
                               })}
                             </div>
+                            {editMode && (
+                              <button onClick={() => addActivity(idx)}
+                                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-primary font-medium border border-dashed border-primary/30 rounded-xl hover:bg-primary/5 transition-colors">
+                                <Plus className="w-3.5 h-3.5" />{t('Añadir actividad')}
+                              </button>
+                            )}
                           </div>
                         )}
 
@@ -693,11 +1035,412 @@ function AIItinerary({ itinerary, trip, user, onRegenerate, regenerating }) {
           </div>
         </div>
       )}
+
+      <EditChoiceSheet
+        open={showEditChoice}
+        onClose={() => setShowEditChoice(false)}
+        onEditItinerary={() => { setShowEditChoice(false); startEdit(); }}
+        onEditPreferences={() => { setShowEditChoice(false); setShowPrefsEditor(true); }}
+      />
+      <EditPreferencesSheet
+        open={showPrefsEditor}
+        trip={trip}
+        tripId={tripId}
+        queryClient={queryClient}
+        onClose={() => setShowPrefsEditor(false)}
+      />
+    </div>
+  );
+}
+
+// ─── Elegir QUÉ editar: el itinerario en sí, o las preferencias/encuesta del viaje ──
+function EditChoiceSheet({ open, onClose, onEditItinerary, onEditPreferences }) {
+  const { t } = useT();
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={onClose}>
+          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30 }}
+            className="w-full bg-background rounded-t-3xl p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-foreground mb-1">{t('¿Qué quieres editar?')}</h3>
+            <button onClick={onEditItinerary}
+              className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card hover:border-primary/40 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0"><Edit3 className="w-4 h-4 text-primary" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{t('El itinerario')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('Cambia horas, actividades, restaurantes... día a día')}</p>
+              </div>
+            </button>
+            <button onClick={onEditPreferences}
+              className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card hover:border-primary/40 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"><Sparkles className="w-4 h-4 text-foreground" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{t('Las preferencias del viaje')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('Tipo, presupuesto, intereses, dieta... y regenera si quieres')}</p>
+              </div>
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Editar las respuestas del "cuestionario" (preferencias) sin repetir el wizard ──
+function EditPreferencesSheet({ open, trip, tripId, queryClient, onClose }) {
+  const { t } = useT();
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Reinicia el formulario cada vez que se abre, con los datos actuales del viaje
+  React.useEffect(() => {
+    if (open && trip) {
+      setForm({
+        trip_type: trip.trip_type || '',
+        duration_days: trip.duration_days || 7,
+        budget_type: trip.preferences?.budget_type || 'mid',
+        interests: trip.preferences?.interests || [],
+        diet: trip.preferences?.diet || [],
+      });
+    }
+  }, [open, trip]);
+
+  if (!open || !form) return null;
+
+  const toggle = (key, id) => setForm(f => ({
+    ...f, [key]: f[key].includes(id) ? f[key].filter(x => x !== id) : [...f[key], id],
+  }));
+
+  const buildUpdates = () => ({
+    trip_type: form.trip_type,
+    duration_days: Number(form.duration_days),
+    preferences: { ...trip.preferences, budget_type: form.budget_type, interests: form.interests, diet: form.diet },
+  });
+
+  const save = async (regenerate) => {
+    setSaving(true);
+    try {
+      const updates = buildUpdates();
+      await base44.entities.Trip.update(tripId, updates);
+      // El viaje actualizado en memoria (no el `trip` de props, que puede
+      // quedarse un tick desfasado) — evita regenerar con las preferencias
+      // VIEJAS si "Guardar y regenerar" se pulsa justo después de guardar.
+      const freshTrip = { ...trip, ...updates };
+      onClose();
+      if (regenerate) {
+        const countryData = COUNTRIES.find(c => c.code === freshTrip.destination_country);
+        const originData = COUNTRIES.find(c => c.code === freshTrip.origin_country);
+        toast.success(t('Regenerando itinerario con las nuevas preferencias...'));
+        const ai = await generateItinerary({
+          ...freshTrip,
+          destination_country: countryData?.name || freshTrip.destination_country,
+          origin_country: originData?.name || freshTrip.origin_country,
+        }, () => {});
+        if (ai) await base44.entities.Trip.update(tripId, { ai_itinerary: ai });
+        toast.success(t('¡Itinerario regenerado!'));
+      } else {
+        toast.success(t('Preferencias actualizadas'));
+      }
+      await queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+    } catch {
+      toast.error(t('Error al guardar'));
+    }
+    setSaving(false);
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={onClose}>
+        <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 30 }}
+          className="w-full bg-background rounded-t-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-shrink-0">
+            <h3 className="text-sm font-bold text-foreground">{t('Preferencias del viaje')}</h3>
+            <button onClick={onClose} className="text-muted-foreground text-xl leading-none">×</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <div>
+              <p className="text-xs font-semibold text-foreground mb-2">{t('Tipo de viaje')}</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {TRIP_TYPES.map(ty => (
+                  <button key={ty.id} onClick={() => setForm(f => ({ ...f, trip_type: ty.id }))}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 ${form.trip_type === ty.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+                    <span className="text-lg">{ty.icon}</span>
+                    <span className="text-[9px] font-semibold text-center leading-tight">{t(ty.label)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-foreground mb-2">{t('Presupuesto')}</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {BUDGETS.map(b => (
+                  <button key={b.id} onClick={() => setForm(f => ({ ...f, budget_type: b.id }))}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 ${form.budget_type === b.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
+                    <span className="text-lg">{b.icon}</span>
+                    <span className="text-[9px] font-semibold text-center leading-tight">{t(b.label)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-foreground mb-2">{t('Duración')}</p>
+              <div className="flex items-center gap-4 bg-secondary/50 rounded-xl p-2.5">
+                <button onClick={() => setForm(f => ({ ...f, duration_days: Math.max(1, Number(f.duration_days) - 1) }))}
+                  className="w-8 h-8 rounded-full bg-background border border-border text-base font-bold flex items-center justify-center">−</button>
+                <span className="flex-1 text-center text-lg font-bold">{form.duration_days} <span className="text-xs font-normal text-muted-foreground">{t('días')}</span></span>
+                <button onClick={() => setForm(f => ({ ...f, duration_days: Number(f.duration_days) + 1 }))}
+                  className="w-8 h-8 rounded-full bg-background border border-border text-base font-bold flex items-center justify-center">+</button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-foreground mb-2">{t('¿Qué te gusta hacer?')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {INTERESTS.map(i => <Chip key={i.id} {...i} selected={form.interests.includes(i.id)} onClick={() => toggle('interests', i.id)} />)}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-foreground mb-2">{t('Restricciones dietéticas y alergias')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DIET.map(d => <Chip key={d.id} {...d} selected={form.diet.includes(d.id)} onClick={() => toggle('diet', d.id)} />)}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border flex gap-2 flex-shrink-0">
+            <Button variant="outline" onClick={() => save(false)} disabled={saving} className="flex-1 h-10 rounded-xl text-xs">
+              {t('Guardar')}
+            </Button>
+            <Button onClick={() => save(true)} disabled={saving} className="flex-1 h-10 rounded-xl text-xs">
+              {saving ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+              {t('Guardar y regenerar')}
+            </Button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ─── Tracker de gastos ──────────────────────────────────────────────────
+const EXPENSE_CATEGORIES = [
+  { key: 'food', label: 'Comida', icon: '🍽️', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+  { key: 'transport', label: 'Transporte', icon: '🚌', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  { key: 'accommodation', label: 'Alojamiento', icon: '🏨', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
+  { key: 'activities', label: 'Actividades', icon: '🎟️', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  { key: 'shopping', label: 'Compras', icon: '🛍️', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
+  { key: 'other', label: 'Otros', icon: '📦', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800/40 dark:text-gray-300' },
+];
+
+function ExpenseTracker({ trip, tripId, queryClient }) {
+  const { t } = useT();
+  const expenses = trip.expenses || [];
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ amount: '', category: 'food', description: '', date: new Date().toISOString().slice(0, 10) });
+  const [saving, setSaving] = useState(false);
+
+  const total = expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const byCategory = EXPENSE_CATEGORIES.map(cat => ({
+    ...cat,
+    total: expenses.filter(e => e.category === cat.key).reduce((s, e) => s + (Number(e.amount) || 0), 0),
+    count: expenses.filter(e => e.category === cat.key).length,
+  })).filter(c => c.count > 0);
+
+  const budget = trip.ai_itinerary?.presupuesto_estimado;
+
+  const addExpense = async () => {
+    if (!form.amount || Number(form.amount) <= 0) return;
+    setSaving(true);
+    const newExpense = { ...form, amount: Number(form.amount), id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
+    try {
+      await base44.entities.Trip.update(tripId, { expenses: [...expenses, newExpense] });
+      queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+      setForm({ amount: '', category: 'food', description: '', date: new Date().toISOString().slice(0, 10) });
+      setShowForm(false);
+      toast.success(t('Gasto añadido'));
+    } catch { toast.error('Error'); }
+    setSaving(false);
+  };
+
+  const deleteExpense = async (id) => {
+    try {
+      await base44.entities.Trip.update(tripId, { expenses: expenses.filter(e => e.id !== id) });
+      queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+    } catch { toast.error('Error'); }
+  };
+
+  const getCat = (key) => EXPENSE_CATEGORIES.find(c => c.key === key) || EXPENSE_CATEGORIES[5];
+
+  return (
+    <div className="space-y-4">
+      {/* Resumen */}
+      <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl border border-primary/20 p-4">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">{t('Total gastado')}</p>
+        <p className="text-2xl font-bold text-foreground">{total.toFixed(2)}€</p>
+        {budget && <p className="text-xs text-muted-foreground mt-1">{t('Presupuesto estimado')}: {budget}</p>}
+      </div>
+
+      {/* Desglose por categoría */}
+      {byCategory.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {byCategory.map(cat => (
+            <div key={cat.key} className={`rounded-xl px-3 py-2 ${cat.color}`}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm">{cat.icon}</span>
+                <span className="text-xs font-semibold">{t(cat.label)}</span>
+              </div>
+              <p className="text-sm font-bold mt-0.5">{cat.total.toFixed(2)}€</p>
+              <p className="text-[10px] opacity-70">{cat.count} {cat.count === 1 ? t('gasto') : t('gastos')}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Botón añadir */}
+      <Button onClick={() => setShowForm(!showForm)} variant={showForm ? 'outline' : 'default'} className="w-full rounded-xl h-9 text-xs">
+        <Plus className="w-3.5 h-3.5 mr-1" />{showForm ? t('Cancelar') : t('Añadir gasto')}
+      </Button>
+
+      {/* Formulario */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden">
+            <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t('Cantidad')} (€)</label>
+                  <input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="0.00" className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t('Fecha')}</label>
+                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t('Categoría')}</label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {EXPENSE_CATEGORIES.map(cat => (
+                    <button key={cat.key} onClick={() => setForm(f => ({ ...f, category: cat.key }))}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-all ${form.category === cat.key
+                        ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+                      {cat.icon} {t(cat.label)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t('Descripción')}</label>
+                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder={t('ej. Cena en restaurante...')}
+                  className="w-full mt-1 h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <Button onClick={addExpense} disabled={saving || !form.amount} className="w-full rounded-xl h-9 text-xs">
+                {saving ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                {t('Guardar gasto')}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lista de gastos */}
+      {expenses.length > 0 ? (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('Historial')}</h3>
+          {[...expenses].reverse().map(exp => {
+            const cat = getCat(exp.category);
+            return (
+              <div key={exp.id} className="flex items-center gap-3 bg-card rounded-xl border border-border p-3">
+                <span className="text-lg">{cat.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{exp.description || t(cat.label)}</p>
+                  <p className="text-[10px] text-muted-foreground">{exp.date}</p>
+                </div>
+                <p className="text-sm font-bold text-foreground whitespace-nowrap">{Number(exp.amount).toFixed(2)}€</p>
+                <button onClick={() => deleteExpense(exp.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : !showForm && (
+        <div className="bg-card rounded-xl border border-border p-8 text-center">
+          <DollarSign className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm font-semibold text-foreground mb-1">{t('Sin gastos registrados')}</p>
+          <p className="text-xs text-muted-foreground">{t('Añade tus gastos para controlar el presupuesto')}</p>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────
+// ─── Hoja de compartir (#6) — sin backend: el enlace lleva el viaje dentro ───
+function ShareSheet({ trip, onClose }) {
+  const { t } = useT();
+  const share = async (permission) => {
+    const url = buildShareUrl(trip, permission);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: trip.title || t('Mi viaje en Waddle'), url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success(t('Enlace copiado'));
+      }
+    } catch {}
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      {trip && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={onClose}>
+          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30 }}
+            className="w-full bg-background rounded-t-3xl p-5 pb-8 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <LinkIcon className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">{t('Compartir viaje')}</h3>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-1 mb-2">
+              {t('No hay cuentas en la nube todavía: el enlace lleva el viaje dentro. Quien lo abra puede verlo o guardarse su propia copia — no es edición compartida en tiempo real.')}
+            </p>
+            <button onClick={() => share('view')}
+              className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card hover:border-primary/40 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"><Eye className="w-4 h-4 text-foreground" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{t('Solo ver')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('Puede consultar el itinerario, no editar')}</p>
+              </div>
+            </button>
+            <button onClick={() => share('edit')}
+              className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card hover:border-primary/40 text-left transition-colors">
+              <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0"><PencilLine className="w-4 h-4 text-primary" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">{t('Ver y editar')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('Se lo guarda como su copia y la edita libremente')}</p>
+              </div>
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function TripDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -710,6 +1453,7 @@ export default function TripDetail() {
   const [regenerating, setRegenerating] = useState(false);
   const [editingDates, setEditingDates] = useState(false);
   const [dateForm, setDateForm] = useState({ start_date:'', end_date:'' });
+  const [showShareSheet, setShowShareSheet] = useState(false);
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ['trip', tripId],
@@ -873,6 +1617,10 @@ export default function TripDetail() {
               <Check className="w-3.5 h-3.5 mr-1" />Completar
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => setShowShareSheet(true)} title={t('Compartir viaje')}
+            className="bg-card/60 backdrop-blur rounded-full h-9 w-9">
+            <Share2 className="w-4 h-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={handleDeleteTrip} title={deleteConfirmCount === 0 ? 'Eliminar viaje' : deleteConfirmCount === 1 ? 'Confirma de nuevo' : 'Último clic para borrar'}
             className={`backdrop-blur rounded-full h-9 w-9 transition-all ${deleteConfirmCount === 0 ? 'bg-card/60 text-destructive' : deleteConfirmCount === 1 ? 'bg-destructive/30 text-destructive' : 'bg-destructive/50 text-white'}`}>
             <Trash2 className="w-4 h-4" />
@@ -948,6 +1696,7 @@ export default function TripDetail() {
             <TabsTrigger value="photos" className="flex-1 text-xs gap-1"><Image className="w-3 h-3" />{t('Fotos')}</TabsTrigger>
             <TabsTrigger value="map" className="flex-1 text-xs gap-1"><Map className="w-3 h-3" />{t('Mapa')}</TabsTrigger>
             <TabsTrigger value="videos" className="flex-1 text-xs gap-1"><Video className="w-3 h-3" />{t('Video')}</TabsTrigger>
+            <TabsTrigger value="expenses" className="flex-1 text-xs gap-1"><DollarSign className="w-3 h-3" />{t('Gastos')}</TabsTrigger>
           </TabsList>
 
           {/* ── Itinerario IA ── */}
@@ -965,6 +1714,8 @@ export default function TripDetail() {
               user={currentUser}
               onRegenerate={handleRegenerate}
               regenerating={regenerating}
+              tripId={tripId}
+              queryClient={queryClient}
             />
           </TabsContent>
 
@@ -1041,8 +1792,15 @@ export default function TripDetail() {
           <TabsContent value="videos" className="mt-4">
             <TripVideoTab photos={photos} tripTitle={trip.title} tripId={tripId} />
           </TabsContent>
+
+          {/* ── Gastos ── */}
+          <TabsContent value="expenses" className="mt-4">
+            <ExpenseTracker trip={trip} tripId={tripId} queryClient={queryClient} />
+          </TabsContent>
         </Tabs>
       </div>
+
+      <ShareSheet trip={showShareSheet ? trip : null} onClose={() => setShowShareSheet(false)} />
     </div>
   );
 }

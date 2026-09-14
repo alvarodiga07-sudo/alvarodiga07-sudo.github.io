@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -6,12 +6,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronRight, ChevronLeft, X, Sparkles, Search, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X, Sparkles, Search, Check, CalendarDays } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
-import { generateItinerary, hasApiKey } from '@/lib/claudeAI';
-import { getRegionData, CITY_ATTRACTIONS, CITIES_BY_COUNTRY } from '@/lib/destinationData';
-import { format, addDays } from 'date-fns';
-import { useT } from '@/lib/i18n';
+import { generateItinerary } from '@/lib/claudeAI';
+import { getRegionData, getRegion, CITY_ATTRACTIONS, CITIES_BY_COUNTRY } from '@/lib/destinationData';
+import { estimateTripBudget } from '@/lib/itineraryGenerator';
+import {
+  format, addDays, addMonths, subMonths, startOfMonth, endOfMonth,
+  startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, isBefore,
+} from 'date-fns';
+import { useT, getDateLocale } from '@/lib/i18n';
 
 // Rangos de presupuesto seleccionables por nivel (#5)
 const BUDGET_RANGES = {
@@ -21,14 +25,27 @@ const BUDGET_RANGES = {
   luxury:  ['8000-12000€', '12000-20000€', '+20000€'],
 };
 
-const TRIP_TYPES = [
+// Genera 3 chips de rango alrededor del total estimado real (#8), redondeados
+// a 50€ para que no se vean cifras raras tipo "812€-1104€".
+function buildRangeChips(total) {
+  const round50 = (n) => Math.max(50, Math.round(n / 50) * 50);
+  const low = round50(total * 0.85);
+  const high = round50(total * 1.2);
+  return [
+    { label: `< ${low}€`, amount: low },
+    { label: `${low}-${high}€`, amount: Math.round((low + high) / 2) },
+    { label: `> ${high}€`, amount: high },
+  ];
+}
+
+export const TRIP_TYPES = [
   { id:'leisure', label:'Ocio', icon:'🏖️' }, { id:'adventure', label:'Aventura', icon:'🧗' },
   { id:'romantic', label:'Romántico', icon:'💕' }, { id:'family', label:'Familiar', icon:'👨‍👩‍👧‍👦' },
   { id:'cultural', label:'Cultural', icon:'🏛️' }, { id:'gastronomy', label:'Gastronomía', icon:'🍽️' },
   { id:'nature', label:'Naturaleza', icon:'🌿' }, { id:'work', label:'Trabajo', icon:'💼' },
 ];
 
-const BUDGETS = [
+export const BUDGETS = [
   { id:'budget', label:'Económico', desc:'~70€/día', icon:'🪙' },
   { id:'mid', label:'Intermedio', desc:'~150€/día', icon:'💳' },
   { id:'comfort', label:'Confort', desc:'~260€/día', icon:'⭐' },
@@ -36,14 +53,14 @@ const BUDGETS = [
 ];
 
 // Categorías de gasto para el sistema de prioridades (#4)
-const SPEND_CATEGORIES = [
+export const SPEND_CATEGORIES = [
   { id:'hotel', label:'Alojamiento', icon:'🏨', desc:'Dónde dormir' },
   { id:'food', label:'Comida', icon:'🍽️', desc:'Restaurantes y experiencias' },
   { id:'activities', label:'Actividades', icon:'🎟️', desc:'Tours, entradas, experiencias' },
   { id:'transport', label:'Transporte', icon:'🚕', desc:'Cómo moverte' },
 ];
 
-const INTERESTS = [
+export const INTERESTS = [
   { id:'museums', label:'Museos', icon:'🏛️' }, { id:'history', label:'Historia', icon:'📜' },
   { id:'nature', label:'Naturaleza', icon:'🌿' }, { id:'beaches', label:'Playas', icon:'🏖️' },
   { id:'food', label:'Gastronomía', icon:'🍜' }, { id:'nightlife', label:'Vida nocturna', icon:'🎶' },
@@ -53,14 +70,14 @@ const INTERESTS = [
 ];
 
 // Restricciones dietéticas (universales — sí aplican a todos los países)
-const DIET = [
+export const DIET = [
   { id:'none', label:'Sin restricciones', icon:'✅' }, { id:'vegetarian', label:'Vegetariano', icon:'🥗' },
   { id:'vegan', label:'Vegano', icon:'🌱' }, { id:'gluten_free', label:'Sin gluten', icon:'🌾' },
   { id:'halal', label:'Halal', icon:'☪️' }, { id:'kosher', label:'Kosher', icon:'✡️' },
   { id:'nuts', label:'Alergia frutos secos', icon:'🥜' }, { id:'seafood', label:'Alergia marisco', icon:'🦐' },
 ];
 
-const COMPANIONS = [
+export const COMPANIONS = [
   { id:'solo', label:'Solo', icon:'🧍' }, { id:'partner', label:'Pareja', icon:'💑' },
   { id:'friends', label:'Amigos', icon:'👯' }, { id:'family_kids', label:'Familia+niños', icon:'👨‍👩‍👧' },
   { id:'family_adults', label:'Familia', icon:'👨‍👩‍👦‍👦' }, { id:'colleagues', label:'Trabajo', icon:'💼' },
@@ -126,7 +143,7 @@ function CountrySearchSelect({ value, onChange, placeholder }) {
   );
 }
 
-function Chip({ label, icon, selected, onClick }) {
+export function Chip({ label, icon, selected, onClick }) {
   return (
     <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 text-xs font-semibold transition-all ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/40'}`}>
@@ -161,6 +178,80 @@ function OtherInput({ values, onAdd, onRemove, placeholder }) {
   );
 }
 
+// ── Calendario propio (#1: sustituye al date picker nativo del SO) ──
+function DatePicker({ value, onChange, minDate }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => value ? new Date(value + 'T12:00') : new Date());
+  const containerRef = useRef(null);
+  const selected = value ? new Date(value + 'T12:00') : null;
+  const locale = getDateLocale();
+
+  useEffect(() => {
+    const h = e => { if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const min = minDate ? new Date(minDate + 'T00:00') : today;
+  const gridStart = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+
+  const pick = (d) => { onChange(format(d, 'yyyy-MM-dd')); setOpen(false); };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button type="button" onClick={() => { setOpen(o => !o); if (selected) setViewMonth(selected); }}
+        className="w-full h-11 rounded-xl border border-input bg-background px-3 flex items-center gap-2 text-sm text-left hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
+        <CalendarDays className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        {selected
+          ? <span className="flex-1 font-medium capitalize truncate">{format(selected, "EEEE d 'de' MMMM yyyy", { locale })}</span>
+          : <span className="flex-1 text-muted-foreground">{t('Selecciona una fecha')}</span>}
+      </button>
+      {open && (
+        <div className="absolute z-50 top-12 left-0 right-0 bg-card border border-border rounded-2xl shadow-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <button type="button" onClick={() => setViewMonth(m => subMonths(m, 1))}
+              className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center text-foreground">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-bold capitalize">{format(viewMonth, 'MMMM yyyy', { locale })}</span>
+            <button type="button" onClick={() => setViewMonth(m => addMonths(m, 1))}
+              className="w-8 h-8 rounded-full hover:bg-secondary flex items-center justify-center text-foreground">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+              <div key={i} className="text-[10px] text-center text-muted-foreground font-semibold">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {days.map(d => {
+              const disabled = isBefore(d, min) && !isSameDay(d, min);
+              const inMonth = isSameMonth(d, viewMonth);
+              const isSel = selected && isSameDay(d, selected);
+              const isToday = isSameDay(d, today);
+              return (
+                <button key={d.toISOString()} type="button" disabled={disabled} onClick={() => pick(d)}
+                  className={`aspect-square rounded-lg text-xs font-medium flex items-center justify-center transition-colors
+                    ${!inMonth ? 'text-muted-foreground/25' : 'text-foreground'}
+                    ${disabled ? 'opacity-25 cursor-not-allowed' : 'hover:bg-secondary cursor-pointer'}
+                    ${isSel ? '!bg-primary !text-primary-foreground font-bold' : ''}
+                    ${isToday && !isSel ? 'ring-1 ring-primary/50 font-bold' : ''}`}>
+                  {format(d, 'd')}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TripWizard() {
   const { t } = useT();
   const navigate = useNavigate();
@@ -180,7 +271,6 @@ export default function TripWizard() {
   const [step, setStep] = useState(0);
   const [aiMsg, setAiMsg] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [showKeyPrompt, setShowKeyPrompt] = useState(false);
   // Igual que en Onboarding: si el móvil pasa a segundo plano a mitad de la
   // animación de un paso, el navegador la congela y el paso se queda invisible
   // ("en blanco"). Al volver a estar visible, forzamos un remount limpio del paso.
@@ -199,7 +289,7 @@ export default function TripWizard() {
     duration_days: preDays ? Number(preDays) : 7,
     budget_type: preBudget || '', budget_range:'', budget_amount:'',
     priorities:{ hotel:50, food:50, activities:50, transport:50 },
-    travelers_count:1, age:25, companions:'solo', accommodation_pref:'',
+    travelers_count:1, age:25, companion_ages:[], companions:'solo', accommodation_pref:'',
     trip_type: preType || '',
     interests:[], diet:[], food_experiences:[], health_notes:'',
     custom_interests:[], custom_food:[], custom_diet:[],
@@ -236,9 +326,31 @@ export default function TripWizard() {
   const regionData = form.destination_country ? getRegionData(form.destination_country) : null;
   const countryName = COUNTRIES.find(c => c.code === form.destination_country)?.name || '';
 
+  // Presupuesto realista por destino (#8): mismos datos que usará el generador
+  // real, así lo que se muestra aquí coincide con lo que luego sale calculado.
+  // En modo sorpresa no hay destino todavía — se muestran los valores genéricos.
+  const destKnown = !isSurprise && !!form.destination_country;
+  const budgetEstimate = useMemo(() => (
+    destKnown ? estimateTripBudget(form.destination_country, form.duration_days, getRegion(form.destination_country)) : null
+  ), [destKnown, form.destination_country, form.duration_days]);
+
   const toggle = (key, id) => setForm(p => ({
     ...p, [key]: p[key].includes(id) ? p[key].filter(x => x !== id) : [...p[key], id],
   }));
+
+  // Mantiene companion_ages sincronizado con travelers_count (longitud = nº acompañantes = travelers_count - 1)
+  const setTravelersCount = (n) => setForm(p => {
+    const count = Math.max(1, n);
+    const ages = [...p.companion_ages];
+    while (ages.length < count - 1) ages.push(p.age || 25);
+    ages.length = Math.max(0, count - 1);
+    return { ...p, travelers_count: count, companion_ages: ages };
+  });
+  const setCompanionAge = (idx, val) => setForm(p => {
+    const ages = [...p.companion_ages];
+    ages[idx] = val;
+    return { ...p, companion_ages: ages };
+  });
 
   const toggleCity = (city) => setForm(p => ({
     ...p, destination_cities: p.destination_cities.includes(city)
@@ -247,10 +359,14 @@ export default function TripWizard() {
   }));
 
   const canNext = () => {
-    // En modo SORPRESA no se requiere destino — solo origen
-    if (step === 0) return isSurprise ? form.origin_country : form.destination_country;
-    if (step === 2) return form.budget_type;
-    if (step === 4) return form.trip_type;
+    // Paso 0: origen SIEMPRE obligatorio (sin él no hay vuelos/precios reales).
+    // En modo SORPRESA no se requiere destino — lo elige la IA.
+    if (step === 0) return !!form.origin_country && (isSurprise || !!form.destination_country);
+    // Paso 1: sin fecha de salida no se pueden buscar vuelos/hoteles reales ni
+    // calcular temporada — antes se podía saltar y el viaje salía sin fechas.
+    if (step === 1) return !!form.start_date;
+    if (step === 2) return !!form.budget_type;
+    if (step === 4) return !!form.trip_type;
     return true;
   };
 
@@ -284,12 +400,6 @@ export default function TripWizard() {
   };
 
   const handleCreate = async () => {
-    // Para generar itinerarios con IA hace falta conectar una clave de Anthropic (Claude).
-    // Si no hay clave, mostramos la explicación en vez de generar.
-    if (!hasApiKey()) {
-      setShowKeyPrompt(true);
-      return;
-    }
     try {
       setLoading(true); setAiMsg(0);
 
@@ -325,6 +435,7 @@ export default function TripWizard() {
           food_experiences: [...form.food_experiences, ...form.custom_food],
           health_notes: form.health_notes,
           age: Number(form.age), companions: form.companions,
+          traveler_ages: [Number(form.age), ...form.companion_ages.map(Number)],
           accommodation_pref: form.accommodation_pref,
           flexible_dates: form.flexible_dates,
           luggage: form.luggage,
@@ -391,38 +502,6 @@ export default function TripWizard() {
           <motion.p key={aiMsg} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             className="text-sm text-muted-foreground">{AI_MSGS[aiMsg]}</motion.p>
         </AnimatePresence>
-      </div>
-    </div>
-  );
-
-  // Modal: pedir conectar la clave de Claude para generar con IA
-  if (showKeyPrompt) return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
-      <div className="w-full max-w-md">
-        <div className="text-5xl mb-4">✨</div>
-        <h2 className="text-2xl font-extrabold text-foreground mb-2">Conecta Claude para generar tu viaje</h2>
-        <p className="text-sm text-muted-foreground mb-5">
-          Waddle crea tus itinerarios con la IA de Claude (Anthropic). Solo tienes que conectar tu
-          clave <strong>una vez</strong>; se guarda en tu dispositivo y los costes corren por tu cuenta de Anthropic.
-        </p>
-
-        <div className="bg-muted/50 rounded-2xl p-4 text-left text-sm space-y-1.5 mb-5">
-          <p className="font-semibold text-foreground">Cómo conseguir tu clave (2 min):</p>
-          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-            <li>Entra en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline font-medium">console.anthropic.com</a> y crea tu cuenta</li>
-            <li>Ve a <strong>API Keys</strong> → <strong>Create Key</strong></li>
-            <li>Copia la clave (empieza por <code>sk-ant-</code>)</li>
-            <li>Pégala en <strong>Ajustes</strong> de Waddle y guarda</li>
-          </ol>
-          <p className="text-muted-foreground pt-1">💡 En Anthropic puedes fijar un límite de gasto para no gastar de más.</p>
-        </div>
-
-        <Button onClick={() => navigate('/settings')} className="w-full h-12 rounded-xl text-base font-semibold mb-2">
-          Ir a Ajustes y conectar mi clave
-        </Button>
-        <button onClick={() => setShowKeyPrompt(false)} className="w-full h-10 text-sm text-muted-foreground hover:text-foreground transition">
-          Volver
-        </button>
       </div>
     </div>
   );
@@ -534,7 +613,7 @@ export default function TripWizard() {
               <motion.div key={`dates-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">{t('Fechas del viaje')}</h2>
                 <Field label={t('Fecha de salida')}>
-                  <Input type="date" value={form.start_date} onChange={e => up('start_date', e.target.value)} className="h-11 rounded-xl" />
+                  <DatePicker value={form.start_date} onChange={v => up('start_date', v)} />
                 </Field>
                 <Field label={t('Duración')}>
                   <div className="flex items-center gap-4 bg-secondary/50 rounded-xl p-3">
@@ -550,9 +629,14 @@ export default function TripWizard() {
                     <p className="text-xs text-muted-foreground mt-1">{t('Vuelta calculada automáticamente')}</p>
                   </div>
                 )}
-                <label className="flex items-center gap-3 cursor-pointer bg-secondary/50 rounded-xl p-3">
-                  <input type="checkbox" checked={form.flexible_dates} onChange={e => up('flexible_dates', e.target.checked)} className="w-4 h-4 accent-primary" />
-                  <span className="text-sm">{t('Fechas flexibles para mejores precios')}</span>
+                <label className="flex items-start gap-3 cursor-pointer bg-secondary/50 rounded-xl p-3">
+                  <input type="checkbox" checked={form.flexible_dates} onChange={e => up('flexible_dates', e.target.checked)} className="w-4 h-4 accent-primary mt-0.5" />
+                  <span>
+                    <span className="text-sm block">{t('Fechas flexibles para mejores precios')}</span>
+                    <span className="text-xs text-muted-foreground block mt-0.5">
+                      {t('Le decimos a la IA que puede mover el viaje ±3 días para encontrar mejor relación precio/temporada, y ajustamos la estimación de vuelo con un pequeño descuento')}
+                    </span>
+                  </span>
                 </label>
               </motion.div>
             )}
@@ -561,13 +645,20 @@ export default function TripWizard() {
             {step === 2 && (
               <motion.div key={`budget-${visibilityTick}`} initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} exit={{ opacity:0, x:-30 }} className="space-y-5">
                 <h2 className="text-2xl font-bold text-center">{t('Presupuesto')} *</h2>
+                {destKnown && (
+                  <p className="text-xs text-center text-muted-foreground -mt-3">
+                    {t('Calculado con el coste de vida real de')} {countryName}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   {BUDGETS.map(b => (
                     <motion.button key={b.id} whileTap={{ scale:0.95 }} onClick={() => up('budget_type', b.id)}
                       className={`flex flex-col items-start gap-1 p-4 rounded-2xl border-2 text-left ${form.budget_type===b.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
                       <span className="text-3xl">{b.icon}</span>
                       <span className="text-sm font-bold">{t(b.label)}</span>
-                      <span className="text-[10px] text-muted-foreground">{b.desc}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {budgetEstimate ? `~${budgetEstimate[b.id].perDay}€/día` : b.desc}
+                      </span>
                     </motion.button>
                   ))}
                 </div>
@@ -595,17 +686,40 @@ export default function TripWizard() {
                   </div>
                 )}
 
-                {/* Rangos de presupuesto seleccionables (#5) */}
+                {/* Rangos de presupuesto seleccionables (#5), calculados sobre el destino real (#8) */}
                 {form.budget_type && (
                   <Field label="Presupuesto total aproximado (por persona)">
-                    <div className="flex flex-wrap gap-2">
-                      {(BUDGET_RANGES[form.budget_type] || []).map(range => (
-                        <Chip key={range} label={range} icon="💶"
-                          selected={form.budget_range === range}
-                          onClick={() => up('budget_range', form.budget_range === range ? '' : range)} />
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">Selecciona un rango — la IA ajustará todo a ese presupuesto</p>
+                    {budgetEstimate ? (
+                      <>
+                        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center mb-3">
+                          <p className="text-[11px] text-muted-foreground">
+                            {t('Estimación para')} {countryName} · {form.duration_days} {t('días')}
+                          </p>
+                          <p className="text-lg font-bold text-primary">
+                            {Math.round(budgetEstimate[form.budget_type].total * 0.85)}€ – {Math.round(budgetEstimate[form.budget_type].total * 1.15)}€
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {buildRangeChips(budgetEstimate[form.budget_type].total).map(range => (
+                            <Chip key={range.label} label={range.label} icon="💶"
+                              selected={form.budget_range === range.label}
+                              onClick={() => { up('budget_range', form.budget_range === range.label ? '' : range.label); up('budget_amount', form.budget_range === range.label ? '' : range.amount); }} />
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{t('Calculado con el coste de vida real de tu destino — puedes ajustarlo')}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {(BUDGET_RANGES[form.budget_type] || []).map(range => (
+                            <Chip key={range} label={range} icon="💶"
+                              selected={form.budget_range === range}
+                              onClick={() => up('budget_range', form.budget_range === range ? '' : range)} />
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{t('Selecciona un rango — la IA ajustará todo a ese presupuesto')}</p>
+                      </>
+                    )}
                   </Field>
                 )}
               </motion.div>
@@ -618,7 +732,13 @@ export default function TripWizard() {
                 <Field label={t('¿Con quién vas?')}>
                   <div className="grid grid-cols-3 gap-2">
                     {COMPANIONS.map(c => (
-                      <motion.button key={c.id} whileTap={{ scale:0.95 }} onClick={() => up('companions', c.id)}
+                      <motion.button key={c.id} whileTap={{ scale:0.95 }} onClick={() => {
+                          up('companions', c.id);
+                          // Al elegir "voy acompañado" con solo 1 persona contada, sube a 2
+                          // automáticamente — si no, el paso se queda contradictorio (p.ej.
+                          // "Familia+niños" con "Número de personas: 1" y sin edades que pedir).
+                          if (c.id !== 'solo' && Number(form.travelers_count) < 2) setTravelersCount(2);
+                        }}
                         className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 ${form.companions===c.id ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
                         <span className="text-2xl">{c.icon}</span>
                         <span className="text-[10px] font-semibold text-center leading-tight">{t(c.label)}</span>
@@ -629,19 +749,37 @@ export default function TripWizard() {
                 {form.companions !== 'solo' && (
                   <Field label="Número de personas">
                     <div className="flex items-center gap-4 bg-secondary/50 rounded-xl p-3">
-                      <button onClick={() => up('travelers_count', Math.max(2, Number(form.travelers_count)-1))} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">−</button>
+                      <button onClick={() => setTravelersCount(Math.max(2, Number(form.travelers_count)-1))} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">−</button>
                       <span className="flex-1 text-center text-3xl font-bold">{form.travelers_count}</span>
-                      <button onClick={() => up('travelers_count', Number(form.travelers_count)+1)} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">+</button>
+                      <button onClick={() => setTravelersCount(Number(form.travelers_count)+1)} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">+</button>
                     </div>
                   </Field>
                 )}
-                <Field label="Tu edad">
+                <Field label={form.travelers_count > 1 ? 'Tu edad (viajero 1)' : 'Tu edad'}>
                   <div className="flex items-center gap-4 bg-secondary/50 rounded-xl p-3">
                     <button onClick={() => up('age', Math.max(1, Number(form.age)-1))} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">−</button>
                     <span className="flex-1 text-center text-3xl font-bold">{form.age}</span>
                     <button onClick={() => up('age', Number(form.age)+1)} className="w-10 h-10 rounded-full bg-background border border-border text-xl font-bold flex items-center justify-center">+</button>
                   </div>
                 </Field>
+
+                {/* Edad de cada acompañante (#7) — importante para adaptar el ritmo   */}
+                {/* del día: niños piden más descansos, adultos mayores rutas más suaves */}
+                {form.companion_ages.length > 0 && (
+                  <Field label="Edad de cada acompañante">
+                    <div className="space-y-2">
+                      {form.companion_ages.map((a, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-secondary/50 rounded-xl p-2.5">
+                          <span className="text-xs font-semibold text-muted-foreground w-24 flex-shrink-0">Acompañante {i + 1}</span>
+                          <button onClick={() => setCompanionAge(i, Math.max(0, Number(a) - 1))} className="w-8 h-8 rounded-full bg-background border border-border text-base font-bold flex items-center justify-center flex-shrink-0">−</button>
+                          <span className="flex-1 text-center text-lg font-bold">{a}</span>
+                          <button onClick={() => setCompanionAge(i, Number(a) + 1)} className="w-8 h-8 rounded-full bg-background border border-border text-base font-bold flex items-center justify-center flex-shrink-0">+</button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Ajustamos el ritmo del día según las edades: más descansos con niños o mayores.</p>
+                  </Field>
+                )}
 
                 {/* Tipo de equipaje (#6) */}
                 <Field label="¿Qué equipaje vas a llevar?">

@@ -14,14 +14,6 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.36 1.43c0 1.14-.46 2.23-1.2 3.03-.8.86-2.1 1.52-3.18 1.43-.13-1.08.42-2.23 1.13-3 .8-.85 2.18-1.48 3.25-1.46zM20.8 17.1c-.6 1.38-.88 2-1.65 3.22-1.08 1.7-2.6 3.82-4.48 3.84-1.67.02-2.1-1.08-4.37-1.07-2.27.01-2.74 1.09-4.4 1.07-1.88-.02-3.32-1.93-4.4-3.63C-1.93 15.71-2.25 9.4.79 6.04 1.88 4.85 3.6 4.1 5.2 4.1c1.65 0 2.68 1.08 4.04 1.08 1.32 0 2.13-1.08 4.04-1.08 1.43 0 2.95.78 4.03 2.12-3.54 1.94-2.96 7-1.5 8.78z"/>
-    </svg>
-  );
-}
-
 export default function Login() {
   const [loading, setLoading] = useState('');
   const [error, setError] = useState('');
@@ -30,22 +22,21 @@ export default function Login() {
   const [mode, setMode] = useState('register'); // 'register' | 'login'
   const isRegister = mode === 'register';
   const [password, setPassword] = useState('');
-  // Pon en true cuando Google/Apple OAuth estén configurados en Supabase
-  const OAUTH_ENABLED = false;
+  // Pon en false si Google OAuth aún no está configurado en Supabase
+  // (Dashboard → Authentication → Providers) — con false se oculta el botón y solo
+  // queda email+contraseña, para no mostrar un botón que falla siempre.
+  const OAUTH_ENABLED = true;
 
   const signIn = async (provider) => {
     setError('');
     setLoading(provider);
     try {
-      const fn = provider === 'apple' ? base44.auth.signInWithApple : base44.auth.signInWithGoogle;
-      const { error } = await fn();
+      const { error } = await base44.auth.signInWithGoogle();
       if (error) throw error;
-      // El navegador se redirige al proveedor; al volver, AuthContext detecta la sesión.
+      // El navegador se redirige a Google; al volver, AuthContext detecta la sesión.
     } catch (e) {
       console.error('Login error:', e);
-      setError(provider === 'apple'
-        ? 'El acceso con Apple aún no está activado. Prueba con Google o email.'
-        : 'El acceso con Google aún no está activado. Prueba con tu email.');
+      setError('El acceso con Google aún no está activado. Prueba con tu email.');
       setLoading('');
     }
   };
@@ -124,14 +115,6 @@ export default function Login() {
                 className="w-full h-12 rounded-2xl bg-white border border-[#0f1117]/10 shadow-sm flex items-center justify-center gap-3 font-semibold text-[#0f1117] hover:border-[#eab308] hover:shadow-md transition disabled:opacity-50"
               >
                 <GoogleIcon /> {loading === 'google' ? 'Conectando…' : 'Continuar con Google'}
-              </button>
-
-              <button
-                onClick={() => signIn('apple')}
-                disabled={!!loading}
-                className="w-full h-12 rounded-2xl bg-[#0f1117] text-white flex items-center justify-center gap-3 font-semibold hover:bg-[#1a1d27] transition disabled:opacity-50"
-              >
-                <AppleIcon /> {loading === 'apple' ? 'Conectando…' : 'Continuar con Apple'}
               </button>
 
               {/* Separador */}
