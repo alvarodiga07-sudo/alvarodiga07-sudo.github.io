@@ -77,6 +77,35 @@ export default function Passport() {
     return new Set(trips.filter(t => t.status === 'completed').map(t => t.destination_country).filter(Boolean));
   }, [trips]);
 
+  // Autorreparación: un viaje puede quedar "completado" sin sello (p. ej. bug ya
+  // corregido en viajes sorpresa/sugeridos, o el sello se borró a mano) — sin
+  // esto, ese país no contaba en "X países sellados" aunque el viaje sí conste
+  // como hecho. Al entrar al pasaporte, crea el sello que falte para cada país
+  // completado que aún no tenga uno.
+  React.useEffect(() => {
+    if (!trips.length || !stamps) return;
+    const stampedCountries = new Set(stamps.map(s => s.country_code));
+    const missing = trips.filter(t => t.status === 'completed' && t.destination_country && !stampedCountries.has(t.destination_country));
+    if (!missing.length) return;
+    (async () => {
+      for (const t of missing) {
+        const countryData = COUNTRIES.find(c => c.code === t.destination_country);
+        if (!countryData) continue;
+        try {
+          await base44.entities.PassportStamp.create({
+            country_code: t.destination_country,
+            country_name: countryData.name,
+            trip_id: t.id,
+            visit_date: t.start_date || t.created_date || new Date().toISOString().split('T')[0],
+          });
+        } catch (e) {
+          console.warn('No se pudo reparar el sello de', t.destination_country, e);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['stamps'] });
+    })();
+  }, [trips, stamps, queryClient]);
+
   const handleAddPastTrip = async () => {
     if (!pastTripForm.destination_country || !pastTripForm.start_date || !pastTripForm.duration_days) {
       toast.error('Completa al menos país, fecha y duración');

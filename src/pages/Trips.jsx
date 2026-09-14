@@ -3,36 +3,39 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, PenLine, Plus, Plane, Search, Shuffle } from 'lucide-react';
+import { Sparkles, PenLine, Plus, Plane, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import TripCard from '@/components/trips/TripCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import SuggestedTripModal from '@/components/trips/SuggestedTripModal';
+import { fetchDestinationPhoto } from '@/lib/destinationPhotos';
 import { toast } from 'sonner';
 import { useT } from '@/lib/i18n';
 
-// Destinos variados: 3 categorías - cheap (verde) / normal (amarillo) / premium (rojo)
+// Destinos variados: 3 categorías - cheap (verde) / normal (amarillo) / premium (rojo).
+// wikiQuery: nombre en inglés "Ciudad, País" para buscar la foto real en Wikipedia
+// (la API solo resuelve bien nombres en inglés/nativos, no "Sídney" o "Cracovia").
 const SUGGESTED_DESTINATIONS = [
   // ⚡ Súper baratos (<400€) — fondo verde
-  { country: 'PT', city: 'Lisboa', title: '⚡ Lisboa', desc: 'Express barato', price: '~300€', days: 3, budget: 'budget', type: 'leisure', tier: 'cheap' },
-  { country: 'MA', city: 'Marrakech', title: '⚡ Marrakech', desc: '4 días, 3h vuelo', price: '~350€', days: 4, budget: 'budget', type: 'leisure', tier: 'cheap' },
-  { country: 'PL', city: 'Cracovia', title: '⚡ Cracovia', desc: 'Joya barata', price: '~380€', days: 4, budget: 'budget', type: 'cultural', tier: 'cheap' },
-  { country: 'HU', city: 'Budapest', title: '⚡ Budapest', desc: 'Termas y belleza', price: '~390€', days: 4, budget: 'budget', type: 'cultural', tier: 'cheap' },
+  { country: 'PT', city: 'Lisboa', title: '⚡ Lisboa', desc: 'Express barato', price: '~300€', days: 3, budget: 'budget', type: 'leisure', tier: 'cheap', wikiQuery: 'Lisbon' },
+  { country: 'MA', city: 'Marrakech', title: '⚡ Marrakech', desc: '4 días, 3h vuelo', price: '~350€', days: 4, budget: 'budget', type: 'leisure', tier: 'cheap', wikiQuery: 'Marrakesh' },
+  { country: 'PL', city: 'Cracovia', title: '⚡ Cracovia', desc: 'Joya barata', price: '~380€', days: 4, budget: 'budget', type: 'cultural', tier: 'cheap', wikiQuery: 'Kraków' },
+  { country: 'HU', city: 'Budapest', title: '⚡ Budapest', desc: 'Termas y belleza', price: '~390€', days: 4, budget: 'budget', type: 'cultural', tier: 'cheap', wikiQuery: 'Budapest' },
   // 💰 Asequibles (400-1400€) — fondo amarillo
-  { country: 'TH', city: 'Bangkok', title: '🏯 Bangkok', desc: 'Exótico y baratísimo', price: '~500€', days: 7, budget: 'budget', type: 'leisure', tier: 'normal' },
-  { country: 'GR', city: 'Atenas', title: '⛩️ Atenas', desc: 'Historia y cultura', price: '~600€', days: 4, budget: 'mid', type: 'cultural', tier: 'normal' },
-  { country: 'IT', city: 'Roma', title: '🏛️ Roma', desc: 'Eterna e imprescindible', price: '~700€', days: 5, budget: 'mid', type: 'cultural', tier: 'normal' },
-  { country: 'VN', city: 'Hanói', title: '🍜 Vietnam', desc: 'Barato y espectacular', price: '~750€', days: 10, budget: 'budget', type: 'adventure', tier: 'normal' },
-  { country: 'IS', city: 'Reikiavik', title: '🌋 Islandia', desc: 'Paisajes únicos', price: '~1100€', days: 7, budget: 'mid', type: 'nature', tier: 'normal' },
-  { country: 'JP', city: 'Tokio', title: '🗼 Tokio', desc: 'Viaje de vida', price: '~1400€', days: 10, budget: 'mid', type: 'cultural', tier: 'normal' },
+  { country: 'TH', city: 'Bangkok', title: '🏯 Bangkok', desc: 'Exótico y baratísimo', price: '~500€', days: 7, budget: 'budget', type: 'leisure', tier: 'normal', wikiQuery: 'Bangkok' },
+  { country: 'GR', city: 'Atenas', title: '⛩️ Atenas', desc: 'Historia y cultura', price: '~600€', days: 4, budget: 'mid', type: 'cultural', tier: 'normal', wikiQuery: 'Athens' },
+  { country: 'IT', city: 'Roma', title: '🏛️ Roma', desc: 'Eterna e imprescindible', price: '~700€', days: 5, budget: 'mid', type: 'cultural', tier: 'normal', wikiQuery: 'Rome' },
+  { country: 'VN', city: 'Hanói', title: '🍜 Vietnam', desc: 'Barato y espectacular', price: '~750€', days: 10, budget: 'budget', type: 'adventure', tier: 'normal', wikiQuery: 'Hanoi' },
+  { country: 'IS', city: 'Reikiavik', title: '🌋 Islandia', desc: 'Paisajes únicos', price: '~1100€', days: 7, budget: 'mid', type: 'nature', tier: 'normal', wikiQuery: 'Reykjavík' },
+  { country: 'JP', city: 'Tokio', title: '🗼 Tokio', desc: 'Viaje de vida', price: '~1400€', days: 10, budget: 'mid', type: 'cultural', tier: 'normal', wikiQuery: 'Tokyo' },
   // 🌟 PREMIUM (más caros, más días, exclusivos) — fondo rojo
-  { country: 'MV', city: 'Malé', title: '🌟 Maldivas', desc: 'Resort lujo', price: '~3200€', days: 7, budget: 'luxury', type: 'romantic', tier: 'premium' },
-  { country: 'JP', city: 'Tokio', title: '🌟 Gran Japón', desc: '21 días gran tour', price: '~4500€', days: 21, budget: 'comfort', type: 'cultural', tier: 'premium' },
-  { country: 'AE', city: 'Dubái', title: '🌟 Dubái 5★', desc: 'Lujo árabe', price: '~3500€', days: 6, budget: 'luxury', type: 'leisure', tier: 'premium' },
-  { country: 'CH', city: 'Zúrich', title: '🌟 Alpes Suizos', desc: 'Lujo alpino', price: '~2800€', days: 8, budget: 'comfort', type: 'nature', tier: 'premium' },
-  { country: 'AU', city: 'Sídney', title: '🌟 Australia', desc: 'Viaje de vida', price: '~5500€', days: 18, budget: 'comfort', type: 'adventure', tier: 'premium' },
-  { country: 'KE', city: 'Nairobi', title: '🌟 Safari Kenia', desc: 'Big Five exclusivo', price: '~4200€', days: 10, budget: 'luxury', type: 'adventure', tier: 'premium' },
+  { country: 'MV', city: 'Malé', title: '🌟 Maldivas', desc: 'Resort lujo', price: '~3200€', days: 7, budget: 'luxury', type: 'romantic', tier: 'premium', wikiQuery: 'Maldives' },
+  { country: 'JP', city: 'Tokio', title: '🌟 Gran Japón', desc: '21 días gran tour', price: '~4500€', days: 21, budget: 'comfort', type: 'cultural', tier: 'premium', wikiQuery: 'Tokyo' },
+  { country: 'AE', city: 'Dubái', title: '🌟 Dubái 5★', desc: 'Lujo árabe', price: '~3500€', days: 6, budget: 'luxury', type: 'leisure', tier: 'premium', wikiQuery: 'Dubai' },
+  { country: 'CH', city: 'Zúrich', title: '🌟 Alpes Suizos', desc: 'Lujo alpino', price: '~2800€', days: 8, budget: 'comfort', type: 'nature', tier: 'premium', wikiQuery: 'Swiss Alps' },
+  { country: 'AU', city: 'Sídney', title: '🌟 Australia', desc: 'Viaje de vida', price: '~5500€', days: 18, budget: 'comfort', type: 'adventure', tier: 'premium', wikiQuery: 'Sydney' },
+  { country: 'KE', city: 'Nairobi', title: '🌟 Safari Kenia', desc: 'Big Five exclusivo', price: '~4200€', days: 10, budget: 'luxury', type: 'adventure', tier: 'premium', wikiQuery: 'Maasai Mara' },
 ];
 
 export default function Trips() {
@@ -49,6 +52,38 @@ export default function Trips() {
     queryKey: ['trips'],
     queryFn: () => base44.entities.Trip.list('-created_date'),
   });
+
+  // "La IA aprende de lo que le gusta al usuario": en vez de un orden fijo,
+  // los destinos se reordenan según el tipo de viaje y el presupuesto que el
+  // usuario ha elegido en sus propios viajes (más viajes → mejores sugerencias).
+  // Sigue siendo la misma lista curada; lo que cambia es el orden.
+  const personalizedDestinations = React.useMemo(() => {
+    if (!trips.length) return SUGGESTED_DESTINATIONS;
+    const typeCount = {};
+    const budgetCount = {};
+    trips.forEach(t => {
+      if (t.trip_type) typeCount[t.trip_type] = (typeCount[t.trip_type] || 0) + 1;
+      const b = t.preferences?.budget_type;
+      if (b) budgetCount[b] = (budgetCount[b] || 0) + 1;
+    });
+    const score = (dest) => (typeCount[dest.type] || 0) * 2 + (budgetCount[dest.budget] || 0);
+    return [...SUGGESTED_DESTINATIONS].sort((a, b) => score(b) - score(a));
+  }, [trips]);
+
+  // Foto real del destino (Wikipedia, sin API key) — se pide una vez y se
+  // guarda en localStorage; mientras tanto o si falla, se ve el degradado+emoji.
+  const [destPhotos, setDestPhotos] = React.useState({});
+  React.useEffect(() => {
+    let cancelled = false;
+    SUGGESTED_DESTINATIONS.forEach(async (dest) => {
+      const key = dest.wikiQuery;
+      if (destPhotos[key] !== undefined) return;
+      const url = await fetchDestinationPhoto(key);
+      if (!cancelled) setDestPhotos(prev => ({ ...prev, [key]: url }));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreateSuggestedTrip = async (tripData) => {
     setCreatingTrip(true);
@@ -77,10 +112,8 @@ export default function Trips() {
     }
   };
 
-  // En la pestaña Viajes solo mostramos los pendientes/en curso — los completados están en Inicio
-  const activeTrips = trips.filter(t => t.status !== 'completed');
-  const filteredTrips = activeTrips.filter(t => {
-    const matchFilter = t.status === filter; // Solo planning o active
+  const filteredTrips = trips.filter(t => {
+    const matchFilter = (t.status || 'planning') === filter;
     const matchSearch = !search || t.title?.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
@@ -99,21 +132,17 @@ export default function Trips() {
         <p className="text-sm text-muted-foreground mt-0.5">{t('Tus viajes pendientes y en curso')}</p>
       </div>
 
-      {/* Action buttons — 3 botones (orden: sugeridos, sorpresa más oscuro, crear yo) */}
-      <div className="px-5 grid grid-cols-3 gap-2 mb-5">
+      {/* Solo 2 botones: antes había un tercero ("Viajes sugeridos") que por dentro
+          hacía EXACTAMENTE lo mismo que "Crear yo mismo" (mismo asistente, mismas
+          preguntas) — confundía sin aportar nada distinto. Ahora la elección es
+          clara: que decida la IA, o decides tú. */}
+      <div className="px-5 grid grid-cols-2 gap-3 mb-5">
         <Button
-          onClick={() => navigate('/trip-wizard?mode=suggested')}
+          onClick={() => navigate('/trip-wizard?mode=surprise')}
           className="h-20 rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground flex flex-col items-center gap-1 hover:opacity-90 px-2"
         >
           <Sparkles className="w-5 h-5" />
-          <span className="text-[11px] font-semibold text-center leading-tight">{t('Viajes sugeridos')}</span>
-        </Button>
-        <Button
-          onClick={() => navigate('/trip-wizard?mode=surprise')}
-          className="h-20 rounded-2xl bg-foreground text-background flex flex-col items-center gap-1 hover:opacity-90 px-2"
-        >
-          <Shuffle className="w-5 h-5" />
-          <span className="text-[11px] font-semibold text-center leading-tight">{t('Destino sorpresa')}</span>
+          <span className="text-[12px] font-semibold text-center leading-tight">{t('Que lo haga la IA')}</span>
         </Button>
         <Button
           onClick={() => navigate('/trip-wizard?mode=custom')}
@@ -121,7 +150,7 @@ export default function Trips() {
           className="h-20 rounded-2xl border-2 border-border flex flex-col items-center gap-1 hover:border-primary/50 px-2"
         >
           <PenLine className="w-5 h-5 text-primary" />
-          <span className="text-[11px] font-semibold text-center leading-tight">{t('Crear yo mismo')}</span>
+          <span className="text-[12px] font-semibold text-center leading-tight">{t('Lo hago yo')}</span>
         </Button>
       </div>
 
@@ -132,21 +161,29 @@ export default function Trips() {
           <span className="text-[10px] text-muted-foreground">⚡ {t('Baratos')} · 🌟 {t('Premium')}</span>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-          {SUGGESTED_DESTINATIONS.map((dest) => {
+          {personalizedDestinations.map((dest) => {
             const styles = {
               cheap:   { border: 'border-green-500/40 ring-1 ring-green-500/20', bg: 'from-green-500/15 to-emerald-400/10', price: 'text-green-600' },
               normal:  { border: 'border-border',                                  bg: 'from-primary/15 to-accent/10',       price: 'text-primary' },
               premium: { border: 'border-red-500/50 ring-1 ring-red-500/25',      bg: 'from-red-500/15 to-rose-500/10',     price: 'text-red-600' },
             }[dest.tier || 'normal'];
+            const photoUrl = destPhotos[dest.wikiQuery];
             return (
               <button
                 key={`${dest.country}-${dest.title}`}
                 onClick={() => { setSelectedDest(dest); setModalOpen(true); }}
                 className={`flex-shrink-0 w-36 bg-card rounded-xl border ${styles.border} overflow-hidden hover:shadow-md transition-all active:scale-95`}
               >
-                <div className={`h-16 bg-gradient-to-br ${styles.bg} flex items-center justify-center`}>
-                  <span className="text-3xl">{getEmoji(dest.country)}</span>
-                </div>
+                {photoUrl ? (
+                  <div className="h-16 relative">
+                    <img src={photoUrl} alt={dest.city} loading="lazy" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  </div>
+                ) : (
+                  <div className={`h-16 bg-gradient-to-br ${styles.bg} flex items-center justify-center`}>
+                    <span className="text-3xl">{getEmoji(dest.country)}</span>
+                  </div>
+                )}
                 <div className="p-2.5">
                   <p className="text-xs font-bold text-foreground">{dest.title}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{dest.desc}</p>
@@ -186,10 +223,11 @@ export default function Trips() {
           />
         </div>
 
-        <Tabs value={filter === 'all' || filter === 'completed' ? 'planning' : filter} onValueChange={setFilter} className="mb-4">
+        <Tabs value={filter === 'all' ? 'planning' : filter} onValueChange={setFilter} className="mb-4">
           <TabsList className="bg-secondary/50 w-full">
             <TabsTrigger value="planning" className="flex-1 text-xs">{t('Planeando')}</TabsTrigger>
             <TabsTrigger value="active" className="flex-1 text-xs">{t('Activos')}</TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1 text-xs">{t('Completados')}</TabsTrigger>
           </TabsList>
         </Tabs>
 
