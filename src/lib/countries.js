@@ -136,5 +136,8 @@ export function getVisitedCountries(user, trips = []) {
     .filter(t => t.status === 'completed')
     .map(t => t.destination_country)
     .filter(Boolean);
-  return [...new Set([...fromTrips, ...(user?.countries_visited || [])])];
+  // .filter(Boolean) también en countries_visited: un "" colado ahí (dato
+  // antiguo corrupto) contaba como país de más — el globo llegó a mostrar
+  // 5 países visitados teniendo solo 4 viajes completados.
+  return [...new Set([...fromTrips, ...(user?.countries_visited || [])].filter(Boolean))];
 }

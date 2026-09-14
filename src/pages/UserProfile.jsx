@@ -114,7 +114,9 @@ export default function UserProfile() {
   }
 
   const initials = (target.display_name || target.full_name || 'U').slice(0, 2).toUpperCase();
-  const visitedCount = target.countries_visited?.length || 0;
+  // .filter(Boolean): un "" colado en countries_visited (dato antiguo corrupto,
+  // visto en producción) no debe contar como país.
+  const visitedCount = (target.countries_visited || []).filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -168,7 +170,7 @@ export default function UserProfile() {
         </Button>
       </div>
 
-      <MiniWorldMap visitedCountries={target.countries_visited || []} trips={[]} />
+      <MiniWorldMap visitedCountries={(target.countries_visited || []).filter(Boolean)} trips={[]} />
 
       <div className="px-5 mt-4">
         <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
