@@ -60,10 +60,12 @@ export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
         </div>
       )}
 
-      {/* Duración + fecha de salida debajo del sello, en una sola línea */}
+      {/* Duración + fecha de salida debajo del sello, en una sola línea.
+          Color de tinta fijo (no text-foreground): esta página siempre tiene
+          fondo claro de papel, en modo oscuro el texto claro se volvía invisible. */}
       <div className="flex items-center justify-center min-h-[16px] px-1">
         {combinedLabel && (
-          <span className="text-[10px] font-bold text-foreground/80 tracking-wide text-center">
+          <span className="text-[10px] font-bold tracking-wide text-center text-[#5c3d11]">
             {combinedLabel}
           </span>
         )}
