@@ -1416,7 +1416,7 @@ function ShareSheet({ trip, onClose }) {
               <h3 className="text-sm font-bold text-foreground">{t('Compartir viaje')}</h3>
             </div>
             <p className="text-xs text-muted-foreground -mt-1 mb-2">
-              {t('No hay cuentas en la nube todavía: el enlace lleva el viaje dentro. Quien lo abra puede verlo o guardarse su propia copia — no es edición compartida en tiempo real.')}
+              {t('El enlace lleva el viaje dentro. Quien lo abra puede verlo o guardarse su propia copia — no es edición compartida en tiempo real.')}
             </p>
             <button onClick={() => share('view')}
               className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card hover:border-primary/40 text-left transition-colors">
