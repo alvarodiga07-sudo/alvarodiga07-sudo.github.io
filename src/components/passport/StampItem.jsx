@@ -10,12 +10,16 @@ export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
   const [imgError, setImgError] = useState(false);
   const showPng = pngUrl && !imgError;
 
+  // Fecha de SALIDA del viaje (día en que empieza) — sin año: el sello ya se
+  // agrupa por página/temporada, el año sobra en el espacio reducido del sello.
   const dateLabel = stamp.visit_date
-    ? format(new Date(stamp.visit_date), "d MMM yyyy", { locale: getDateLocale() })
+    ? format(new Date(stamp.visit_date), "d 'de' MMMM", { locale: getDateLocale() })
     : null;
   const durationLabel = durationDays
     ? `${durationDays} día${durationDays !== 1 ? 's' : ''}`
     : null;
+  // "3 días · 27 de febrero" en una sola línea; si falta un dato, se muestra solo el otro.
+  const combinedLabel = [durationLabel, dateLabel].filter(Boolean).join(' · ');
 
   return (
     <motion.button
@@ -56,16 +60,11 @@ export default function StampItem({ stamp, onClick, index = 0, durationDays }) {
         </div>
       )}
 
-      {/* Fecha + duración debajo del sello */}
-      <div className="flex flex-col items-center gap-0.5 min-h-[28px]">
-        {dateLabel && (
-          <span className="text-[10px] font-bold text-foreground/80 tracking-wide">
-            {dateLabel}
-          </span>
-        )}
-        {durationLabel && (
-          <span className="text-[9px] font-medium text-muted-foreground">
-            {durationLabel}
+      {/* Duración + fecha de salida debajo del sello, en una sola línea */}
+      <div className="flex items-center justify-center min-h-[16px] px-1">
+        {combinedLabel && (
+          <span className="text-[10px] font-bold text-foreground/80 tracking-wide text-center">
+            {combinedLabel}
           </span>
         )}
       </div>
