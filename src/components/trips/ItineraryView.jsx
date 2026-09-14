@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown, Clock, MapPin, Utensils, Plane, Hotel,
+  ChevronDown, Clock, MapPin, Plane, Hotel,
   Info, Lightbulb, Globe, Shield, Zap, ExternalLink
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const TYPE_ICONS = {
   visita: '🏛️', comida: '🍽️', transporte: '🚌', ocio: '🎉',
@@ -125,8 +124,8 @@ function DayCard({ day, index }) {
 }
 
 export default function ItineraryView({ itinerary }) {
-  if (!itinerary) return null;
   const [tab, setTab] = useState('dias');
+  if (!itinerary) return null;
 
   const tabs = [
     { id: 'dias', label: 'Días', icon: '📅' },

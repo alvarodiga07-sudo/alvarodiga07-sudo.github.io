@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Calendar, Users, DollarSign, Plane, Hotel, Utensils, Settings2 } from 'lucide-react';
+import { X, Plane, Hotel, Utensils, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { generateLocalItinerary } from '@/lib/itineraryGenerator';
 

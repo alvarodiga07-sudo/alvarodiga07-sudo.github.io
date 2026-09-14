@@ -1,7 +1,7 @@
 import React from 'react';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { getCountryName } from '@/lib/countries';
-import { N2A, CENTROIDS } from '@/lib/mapData';
+import { N2A } from '@/lib/mapData';
 import GEO_URL from 'world-atlas/countries-50m.json?url';
 
 const CAPITALS = {

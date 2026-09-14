@@ -7,7 +7,7 @@ import HomeHeader from '@/components/home/HomeHeader';
 import InteractiveGlobe from '@/components/home/InteractiveGlobe';
 import StatsBar from '@/components/home/StatsBar';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ChevronDown, MapPin, Calendar } from 'lucide-react';
+import { Sparkles, ChevronDown, Calendar } from 'lucide-react';
 import { getCountryEmoji, getCountryName, getVisitedCountries } from '@/lib/countries';
 import { format } from 'date-fns';
 import { getDateLocale } from '@/lib/i18n';

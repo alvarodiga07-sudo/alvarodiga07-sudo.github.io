@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, X, ChevronRight, Download, Key } from 'lucide-react';
+import { Sparkles, X, Download, Key } from 'lucide-react';
 import { detectAI } from '@/lib/claudeAI';
 
 export default function AISetupBanner() {

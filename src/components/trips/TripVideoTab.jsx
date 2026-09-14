@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Music, Volume2, VolumeX, Upload, Lock, Globe, Download, Sparkles } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Volume2, VolumeX, Upload, Lock, Globe, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';

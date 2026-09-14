@@ -6,10 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronRight, ChevronLeft, X, Sparkles, Search, Check, CalendarDays } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X, Sparkles, Search, CalendarDays } from 'lucide-react';
 import { COUNTRIES } from '@/lib/countries';
 import { generateItinerary } from '@/lib/claudeAI';
-import { getRegionData, getRegion, CITY_ATTRACTIONS, CITIES_BY_COUNTRY } from '@/lib/destinationData';
+import { getRegionData, getRegion, CITIES_BY_COUNTRY } from '@/lib/destinationData';
 import { estimateTripBudget } from '@/lib/itineraryGenerator';
 import {
   format, addDays, addMonths, subMonths, startOfMonth, endOfMonth,
@@ -92,6 +92,20 @@ const AI_MSGS = [
   '💰 Ajustando todo a tu presupuesto...', '🎯 Finalizando tu itinerario...',
 ];
 
+// Nombre en español de cada país (solo para que la búsqueda también funcione
+// escribiendo en español, p.ej. "Italia"); el nombre mostrado sigue en inglés.
+let esCountryNames = null;
+function getEsName(code) {
+  if (!esCountryNames) {
+    try {
+      esCountryNames = new Intl.DisplayNames(['es'], { type: 'region' });
+    } catch {
+      esCountryNames = { of: () => '' };
+    }
+  }
+  try { return esCountryNames.of(code) || ''; } catch { return ''; }
+}
+
 // ── Buscador de país con teclado ──
 function CountrySearchSelect({ value, onChange, placeholder }) {
   const [query, setQuery] = useState('');
@@ -100,9 +114,11 @@ function CountrySearchSelect({ value, onChange, placeholder }) {
   const containerRef = useRef(null);
   const selected = COUNTRIES.find(c => c.code === value);
 
+  const matches = (c, q) => c.name.toLowerCase().includes(q) || getEsName(c.code).toLowerCase().includes(q);
+  const startsWith = (c, q) => c.name.toLowerCase().startsWith(q) || getEsName(c.code).toLowerCase().startsWith(q);
   const filtered = query
-    ? COUNTRIES.filter(c => c.name.toLowerCase().startsWith(query.toLowerCase()))
-        .concat(COUNTRIES.filter(c => !c.name.toLowerCase().startsWith(query.toLowerCase()) && c.name.toLowerCase().includes(query.toLowerCase())))
+    ? COUNTRIES.filter(c => startsWith(c, query.toLowerCase()))
+        .concat(COUNTRIES.filter(c => !startsWith(c, query.toLowerCase()) && matches(c, query.toLowerCase())))
     : COUNTRIES;
 
   useEffect(() => { if (!open) setQuery(''); }, [open]);

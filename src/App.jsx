@@ -6,25 +6,26 @@ import { HashRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import { useEffect } from 'react';
+import { useEffect, Suspense, lazy } from 'react';
 import { base44 } from '@/api/base44Client';
 
-// Pages
+// Pages — Home y Login van en el bundle principal (primera pantalla que ve
+// cualquier usuario); el resto se carga bajo demanda para no inflar el bundle inicial.
 import Home from './pages/Home';
 import Login from './pages/Login';
-import Onboarding from './pages/Onboarding';
-import Trips from './pages/Trips';
-import TripWizard from './pages/TripWizard';
-import TripDetail from './pages/TripDetail';
-import Passport from './pages/Passport';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Notifications from './pages/Notifications';
-import AnnualRecap from './pages/AnnualRecap';
-import SocialFeed from './pages/SocialFeed';
-import PeopleSearch from './pages/PeopleSearch';
-import UserProfile from './pages/UserProfile';
-import SharedTrip from './pages/SharedTrip';
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Trips = lazy(() => import('./pages/Trips'));
+const TripWizard = lazy(() => import('./pages/TripWizard'));
+const TripDetail = lazy(() => import('./pages/TripDetail'));
+const Passport = lazy(() => import('./pages/Passport'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const AnnualRecap = lazy(() => import('./pages/AnnualRecap'));
+const SocialFeed = lazy(() => import('./pages/SocialFeed'));
+const PeopleSearch = lazy(() => import('./pages/PeopleSearch'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const SharedTrip = lazy(() => import('./pages/SharedTrip'));
 
 // Layout
 import AppLayout from './components/layout/AppLayout';
@@ -32,6 +33,14 @@ import { LanguageProvider } from './lib/i18n';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const LOGO_URL = "/brand/logo.png";
+
+function RouteFallback() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 // Hook para aplicar el tema oscuro/claro al <html>
 function useThemeApplier() {
@@ -80,28 +89,30 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Routes>
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/trip-wizard" element={<TripWizard />} />
-      {/* SocialFeed va FUERA del layout para ocupar pantalla completa (estilo TikTok) */}
-      <Route path="/social" element={<SocialFeed />} />
-      {/* Enlace de viaje compartido (#6) — sin layout ni login: cualquiera que
-          abra el enlace debe poder verlo, esté o no "registrado" en este dispositivo */}
-      <Route path="/shared/:data" element={<SharedTrip />} />
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/trips" element={<Trips />} />
-        <Route path="/trip/:id" element={<TripDetail />} />
-        <Route path="/passport" element={<Passport />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/recap" element={<AnnualRecap />} />
-        <Route path="/search" element={<PeopleSearch />} />
-        <Route path="/u/:username" element={<UserProfile />} />
-      </Route>
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/trip-wizard" element={<TripWizard />} />
+        {/* SocialFeed va FUERA del layout para ocupar pantalla completa (estilo TikTok) */}
+        <Route path="/social" element={<SocialFeed />} />
+        {/* Enlace de viaje compartido (#6) — sin layout ni login: cualquiera que
+            abra el enlace debe poder verlo, esté o no "registrado" en este dispositivo */}
+        <Route path="/shared/:data" element={<SharedTrip />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/trips" element={<Trips />} />
+          <Route path="/trip/:id" element={<TripDetail />} />
+          <Route path="/passport" element={<Passport />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/recap" element={<AnnualRecap />} />
+          <Route path="/search" element={<PeopleSearch />} />
+          <Route path="/u/:username" element={<UserProfile />} />
+        </Route>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 

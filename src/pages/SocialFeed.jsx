@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, MessageCircle, Send, Share2, MapPin, ArrowLeft,
-  Plus, Volume2, VolumeX, User, Bookmark, Search, Plane
+  Plus, Volume2, VolumeX, Bookmark, Search, Plane
 } from 'lucide-react';
 import { useT } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';

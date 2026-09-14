@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Check, Download, Key, Sparkles, Terminal, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { detectAI, setApiKey, getApiKey, checkOllama } from '@/lib/claudeAI';
+import { detectAI, setApiKey, getApiKey } from '@/lib/claudeAI';
 import { toast } from 'sonner';
 
 const OPTION_OLLAMA = 'ollama';
